@@ -559,7 +559,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-PE9U23gbsl5fJWnqpqKNBuN9lct7ak0K3GJlHL_hZVqzb5pglsZ4BJnhcEwTOlxO/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0fjrkhFzf5_iT5HWmHNHW6R3lv5fI5sAHFICY56dNSAs9ifSq8Ao8QOHkkeMInSUn/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -968,7 +968,10 @@
         document.getElementById('assetSeksi').innerHTML = appState.seksi.filter(s=>s.eventName===appState.currentEvent).map(s => `<option value="${s.id}">${s.name}</option>`).join('') || '<option value="">Tambahkan Seksi Dahulu</option>';
     }
 
-    function openModalNewEvent() { document.getElementById('modalNewEvent').classList.remove('hidden'); }
+    function openModalNewEvent() {
+        ['inputEventName','inputEventChair','inputEventTreasurer','inputEventPastor'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('modalNewEvent').classList.remove('hidden');
+    }
     function closeModalNewEvent() { document.getElementById('modalNewEvent').classList.add('hidden'); }
     
     function saveNewEvent() {
@@ -1007,6 +1010,11 @@
         document.getElementById('txAmount').value = '';
         document.getElementById('txType').value = 'penerimaan';
         document.getElementById('txDesc').value = '';
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('txSumberDana').selectedIndex = 0;
+        document.getElementById('txUraianSelect').selectedIndex = 0;
+        document.getElementById('txPengeluaranCat').selectedIndex = 0;
+        document.getElementById('txPihak').innerHTML = '';
         removeNotaFile();
         handleTxFormChange(); 
     }
@@ -1343,6 +1351,8 @@
 
     function openModalNewSeksi() { 
         document.getElementById('modalNewSeksi').classList.remove('hidden'); 
+        document.getElementById('inputSeksiName').value = '';
+        document.getElementById('inputSeksiPJ').value = '';
         document.getElementById('inputSeksiPagu').value = '';
     }
     function saveNewSeksi() {
@@ -1358,6 +1368,8 @@
 
     function openModalNewAsset() { 
         document.getElementById('modalNewAsset').classList.remove('hidden'); 
+        document.getElementById('assetName').value = '';
+        document.getElementById('assetQty').value = '';
         document.getElementById('assetPrice').value = '';
     }
     function saveNewAsset() {
