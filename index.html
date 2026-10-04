@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem LPJ Terpusat Google Drive Organisasi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 font-sans antialiased flex flex-col">
+
+<!-- Top Navbar -->
+<header class="bg-indigo-900 text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="bg-white/10 p-2 rounded-lg backdrop-blur">
+                <i class="fa-brands fa-google-drive text-emerald-400 text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight">LPJ-Cloud Organisasi</h1>
+                <p class="text-xs text-indigo-200">Terhubung Google Drive Terpusat</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <!-- Dropdown Event Selector (HANYA MUNCUL UNTUK ADMIN) -->
+            <div class="hidden md:flex items-center space-x-2 bg-indigo-800/90 px-3 py-1.5 rounded-xl border border-indigo-700 admin-only">
+                <i class="fa-solid fa-calendar-check text-emerald-400 text-xs"></i>
+                <label for="headerEventSelect" class="text-xs font-semibold text-indigo-200">Event Aktif:</label>
+                <select id="headerEventSelect" onchange="switchEvent(this.value)" class="bg-indigo-950 text-white text-xs font-medium rounded-lg px-2 py-1 outline-none border border-indigo-600 focus:ring-1 focus:ring-emerald-400">
+                </select>
+            </div>
+
+            <div id="driveStatusBadge" class="hidden sm:flex items-center space-x-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs px-3 py-1.5 rounded-full">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Status: <strong id="gasStatusIndicator">Sinkron Cloud OK</strong></span>
+            </div>
+
+            <div class="flex items-center space-x-3 bg-indigo-800/80 px-3 py-1.5 rounded-xl border border-indigo-700">
+                <i class="fa-solid fa-user-shield text-indigo-300"></i>
+                <div class="text-left">
+                    <p id="activeUserRoleDisplay" class="text-xs font-bold leading-tight text-white">Super Admin</p>
+                    <p id="currentEmail" class="text-[10px] text-indigo-200 truncate max-w-[120px]">admin@organisasi.or.id</p>
+                </div>
+                <button onclick="triggerLogout()" title="Keluar / Ganti Akun" class="ml-2 text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-600 p-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main App Container -->
+<div class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col">
+    
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-4 mb-6">
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-indigo-600 text-white shadow-sm">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>Dashboard Event</span>
+        </button>
+        <button onclick="switchTab('bku')" id="tab-bku" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
+            <i class="fa-solid fa-book"></i>
+            <span>Buku Kas Umum (BKU)</span>
+        </button>
+        <button onclick="switchTab('seksi')" id="tab-seksi" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
+            <i class="fa-solid fa-layer-group"></i>
+            <span>Rekap & Uraian Per Seksi</span>
+        </button>
+        <button onclick="switchTab('aset')" id="tab-aset" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Inventaris Aset</span>
+        </button>
+    </div>
+
+    <div id="notificationArea" class="mb-6"></div>
+
+    <!-- TAB 1: DASHBOARD EVENT -->
+    <div id="content-dashboard" class="tab-content space-y-6">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-3 bg-indigo-600 text-white rounded-xl">
+                    <i class="fa-solid fa-circle-info text-lg"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">Event / Kepanitiaan Terpilih</span>
+                    <h2 id="displayCurrentEventTitle" class="text-lg font-bold text-slate-800">Belum Ada Event</h2>
+                    <p class="text-xs text-slate-500">Ketua: <span id="displayChairperson" class="font-medium text-slate-700">-</span> | Pastor Paroki: <span id="displayPastor" class="font-medium text-slate-700">-</span> | Bendahara: <span id="displayTreasurer" class="font-medium text-slate-700">-</span></p>
+                </div>
+            </div>
+            <!-- Dropdown Ganti Event di Dashboard (HANYA MUNCUL UNTUK ADMIN) -->
+            <div class="flex items-center space-x-2 admin-only">
+                <span class="text-xs font-medium text-slate-500">Ganti Event:</span>
+                <select id="dashboardEventSelect" onchange="switchEvent(this.value)" class="bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2 outline-none focus:border-indigo-600 shadow-sm">
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-calendar-star"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Total Pagu Anggaran</p>
+                    <h3 id="statTotalPagu" class="text-lg font-bold text-slate-800">Rp 0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Total Realisasi Belanja</p>
+                    <h3 id="statTotalRealisasi" class="text-lg font-bold text-slate-800">Rp 0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Sisa Saldo Kas Umum</p>
+                    <h3 id="statTotalSaldo" class="text-lg font-bold text-slate-800">Rp 0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-folder-tree"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-400">Event Tersimpan</p>
+                    <h3 id="statFolderCount" class="text-lg font-bold text-slate-800">0 Event</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Management Event (HANYA DITAMPILKAN KE ADMIN) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden admin-only">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        <span>Manajemen Kepanitiaan Terpusat</span>
+                    </h2>
+                </div>
+                <button onclick="openModalNewEvent()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Buat Kepanitiaan Baru</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3 px-4">Nama Event</th>
+                                <th class="pb-3 px-4">Ketua Panitia</th>
+                                <th class="pb-3 px-4">Bendahara Panitia</th>
+                                <th class="pb-3 px-4">Pastor Paroki</th>
+                                <th class="pb-3 px-4 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventTableBody" class="divide-y divide-slate-100 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Akses Bendahara & Seksi (HANYA DITAMPILKAN KE ADMIN) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden admin-only">
+            <div class="p-6 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                    <i class="fa-solid fa-key text-indigo-600"></i>
+                    <span>Password Akses Bendahara & Seksi</span>
+                </h2>
+                <p class="text-xs text-slate-500 mt-1">Buat password 4 digit angka untuk Bendahara Panitia dan setiap Seksi pada event aktif. Password dipakai saat login sebagai Panitia Pelaksana / Seksi.</p>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3 px-4">Akun</th>
+                                <th class="pb-3 px-4">Password (4 Digit)</th>
+                                <th class="pb-3 px-4">Status</th>
+                                <th class="pb-3 px-4 text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="akunAccessTableBody" class="divide-y divide-slate-100 text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generator LPJ -->
+        <div class="bg-gradient-to-r from-indigo-900 to-indigo-800 rounded-2xl shadow-lg p-6 text-white flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+                <h3 class="text-xl font-bold flex items-center space-x-2">
+                    <i class="fa-solid fa-file-shield text-emerald-400"></i>
+                    <span>Ekspor Dokumen LPJ Lengkap</span>
+                </h3>
+                <p class="text-indigo-200 text-sm mt-1 max-w-2xl">
+                    Mengekspor laporan Rekapitulasi Sumber Dana, BKU, Uraian Lengkap Seksi, Inventaris Aset, Tanda Tangan Pastor Paroki, serta Lampiran Bukti Nota.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button onclick="generateExcelLPJ()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center space-x-2 shadow-md">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Simpan Excel LPJ</span>
+                </button>
+                <button onclick="generatePdfLPJ()" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center space-x-2 shadow-md">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Simpan PDF LPJ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: BUKU KAS UMUM (BKU) -->
+    <div id="content-bku" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-book-open text-indigo-600"></i>
+                        <span>Buku Kas Umum (BKU) Kas Utama</span>
+                    </h2>
+                    <p class="text-xs text-slate-500">Mencatat penerimaan utama dan pengeluaran/dropping kas kepanitiaan.</p>
+                </div>
+                <button onclick="openModalNewTransaction()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Catat Transaksi Kas</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="pb-3 px-4">No. Bukti</th>
+                            <th class="pb-3 px-4">Tanggal</th>
+                            <th class="pb-3 px-4">Pihak Terkait</th>
+                            <th class="pb-3 px-4">Uraian Transaksi</th>
+                            <th class="pb-3 px-4 text-center">Bukti Nota</th>
+                            <th class="pb-3 px-4 text-right">Penerimaan (Rp)</th>
+                            <th class="pb-3 px-4 text-right">Pengeluaran (Rp)</th>
+                            <th class="pb-3 px-4 text-right">Saldo Kas Umum</th>
+                            <th class="pb-3 px-4 text-center admin-only">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bkuTableBody" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: REKAPITULASI & URAIAN PER SEKSI -->
+    <div id="content-seksi" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-layer-group text-indigo-600"></i>
+                        <span>Rekapitulasi & Detail Uraian Transaksi Seksi</span>
+                    </h2>
+                </div>
+                <button onclick="openModalNewSeksi()" class="admin-only bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-folder-plus"></i>
+                    <span>Tambah Seksi Baru</span>
+                </button>
+            </div>
+
+            <h3 class="font-bold text-slate-800 text-md mb-3">Ringkasan Kas Per Seksi</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="pb-3 px-4">Nama Seksi</th>
+                            <th class="pb-3 px-4">PJ Seksi</th>
+                            <th class="pb-3 px-4 text-right">Pagu Anggaran</th>
+                            <th class="pb-3 px-4 text-right text-emerald-600">Total Terima Dana</th>
+                            <th class="pb-3 px-4 text-right text-rose-600">Total Belanja (Nota)</th>
+                            <th class="pb-3 px-4 text-right text-indigo-600">Sisa Kas Seksi</th>
+                            <th class="pb-3 px-4 text-center admin-only">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="seksiTableBody" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="font-bold text-slate-800 text-md mb-3">Rincian Uraian Transaksi Per Seksi</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="pb-3 px-4">Seksi</th>
+                            <th class="pb-3 px-4">Tanggal</th>
+                            <th class="pb-3 px-4">No. Nota</th>
+                            <th class="pb-3 px-4">Uraian Transaksi</th>
+                            <th class="pb-3 px-4 text-center">Foto Nota</th>
+                            <th class="pb-3 px-4 text-right text-emerald-600">Terima Dana (Rp)</th>
+                            <th class="pb-3 px-4 text-right text-rose-600">Belanja (Rp)</th>
+                            <th class="pb-3 px-4 text-center admin-only">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="seksiDetailTableBody" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: INVENTARIS ASET -->
+    <div id="content-aset" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-boxes-stacked text-indigo-600 mr-2"></i>Inventaris Aset Kepanitiaan</h2>
+                <button onclick="openModalNewAsset()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"><i class="fa-solid fa-plus mr-2"></i>Catat Aset</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="pb-3 px-4">Nama Barang</th>
+                            <th class="pb-3 px-4">Seksi Terkait</th>
+                            <th class="pb-3 px-4 text-center">Jumlah Unit</th>
+                            <th class="pb-3 px-4 text-right">Harga Satuan (Rp)</th>
+                            <th class="pb-3 px-4 text-right">Total Nilai (Rp)</th>
+                            <th class="pb-3 px-4 text-center admin-only">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL: LOGIN -->
+<div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+        <div class="p-6 bg-indigo-900 text-white text-center">
+            <h3 class="font-bold text-lg">Autentikasi Pengguna</h3>
+            <p class="text-xs text-indigo-200">Aplikasi LPJ Terhubung Cloud</p>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Peran Akses</label>
+                <select id="loginRole" onchange="toggleLoginAkun()" class="w-full px-3 py-2 rounded-xl border text-sm">
+                    <option value="admin">Super Admin (Pusat)</option>
+                    <option value="panitia">Panitia Pelaksana / Seksi</option>
+                </select>
+            </div>
+            <div id="loginAkunWrapper" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Masuk Sebagai</label>
+                <select id="loginAkun" class="w-full px-3 py-2 rounded-xl border text-sm">
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Password</label>
+                <input type="password" id="loginPassword" class="w-full px-3 py-2 rounded-xl border text-sm" onkeyup="if(event.key === 'Enter') processLogin()">
+                <p class="text-[10px] text-slate-400 mt-1">Silakan masukkan password untuk masuk aplikasi</p>
+            </div>
+        </div>
+        <div class="p-4 bg-slate-50 flex justify-end">
+            <button onclick="processLogin()" class="w-full py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Masuk Aplikasi</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: BUAT EVENT BARU -->
+<div id="modalNewEvent" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full overflow-hidden">
+        <div class="p-6 border-b flex justify-between">
+            <h3 class="font-bold text-slate-800">Buat Kepanitiaan Baru</h3>
+            <button onclick="closeModalNewEvent()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Nama Event / Kepanitiaan</label>
+                <input type="text" id="inputEventName" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Contoh: Panitia Paskah 2026">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Nama Ketua Panitia</label>
+                <input type="text" id="inputEventChair" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Nama Lengkap & Gelar">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Nama Bendahara Panitia</label>
+                <input type="text" id="inputEventTreasurer" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Nama Lengkap & Gelar">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Nama Pastor Paroki</label>
+                <input type="text" id="inputEventPastor" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Nama Pastor Paroki">
+            </div>
+        </div>
+        <div class="p-4 bg-slate-50 flex justify-end space-x-3">
+            <button onclick="closeModalNewEvent()" class="px-4 py-2 text-slate-600 bg-slate-200 rounded-xl text-sm">Batal</button>
+            <button onclick="saveNewEvent()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Simpan Kepanitiaan</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: TAMBAH / EDIT TRANSAKSI -->
+<div id="modalNewTransaction" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between">
+            <h3 id="modalTxTitle" class="font-bold text-slate-800">Catat Transaksi Kas</h3>
+            <button onclick="closeModalNewTransaction()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">No. Bukti / Nota (Otomatis)</label>
+                    <input type="text" id="txNoNota" readonly class="w-full px-3 py-2 rounded-xl border text-sm bg-slate-100 font-mono text-slate-600 font-semibold cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Tanggal</label>
+                    <input type="date" id="txDate" class="w-full px-3 py-2 rounded-xl border text-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Tipe / Jenis Transaksi</label>
+                    <select id="txType" onchange="handleTxFormChange()" class="w-full px-3 py-2 rounded-xl border text-sm font-medium">
+                        <option value="penerimaan">Penerimaan</option>
+                        <option value="pengeluaran">Pengeluaran</option>
+                    </select>
+                </div>
+                <div id="txPihakWrapper">
+                    <label id="txPihakLabel" class="block text-xs font-semibold text-slate-500 mb-1">Diterima dari</label>
+                    <select id="txPihak" onchange="handleTxFormChange()" class="w-full px-3 py-2 rounded-xl border text-sm font-medium">
+                    </select>
+                </div>
+            </div>
+
+            <!-- SUB-KATEGORI PENGELUARAN UNTUK SEKSI -->
+            <div id="txPengeluaranCatWrapper" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Jenis Pengeluaran Seksi</label>
+                <select id="txPengeluaranCat" class="w-full px-3 py-2 rounded-xl border text-sm font-medium bg-amber-50 border-amber-200">
+                    <option value="dropping">Dropping Dana ke Seksi (Kas Utama -> Seksi)</option>
+                    <option value="belanja">Belanja / Pengeluaran Seksi Direct</option>
+                </select>
+            </div>
+
+            <!-- SUMBER DANA (PENERIMAAN BENDAHARA PANITIA) -->
+            <div id="txSumberDanaWrapper" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Sumber Dana</label>
+                <select id="txSumberDana" class="w-full px-3 py-2 rounded-xl border text-sm font-medium bg-indigo-50 border-indigo-200">
+                    <option value="Kas Paroki">Kas Paroki</option>
+                    <option value="Hasil Usaha Panitia">Hasil Usaha Panitia</option>
+                    <option value="Sumbangan-Sumbangan">Sumbangan-Sumbangan</option>
+                    <option value="Stasi">Stasi</option>
+                    <option value="Rukun">Rukun</option>
+                    <option value="Pengembalian Sisa Dana Dari Seksi">Pengembalian Sisa Dana Dari Seksi</option>
+                </select>
+            </div>
+
+            <!-- URAIAN TRANSAKSI SELECT/MANUAL -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Uraian Transaksi</label>
+                <div id="txUraianSelectWrapper" class="mb-2 hidden">
+                    <select id="txUraianSelect" onchange="handleUraianSelectChange()" class="w-full px-3 py-2 rounded-xl border text-sm">
+                        <option value="Terima Dana dari Bendahara Panitia">Terima Dana dari Bendahara Panitia</option>
+                        <option value="Penerimaan Lainnya">Penerimaan Lainnya</option>
+                    </select>
+                </div>
+                <input type="text" id="txDesc" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Contoh: Pembelian Perlengkapan / Konsumsi Rapat">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Nominal (Rp)</label>
+                <input type="text" inputmode="numeric" id="txAmount" oninput="formatRibuan(this)" class="w-full px-3 py-2 rounded-xl border text-sm font-semibold text-slate-800" placeholder="500.000">
+            </div>
+
+            <!-- UPLOAD FOTO NOTA -->
+            <div class="border-t border-slate-200 pt-3">
+                <label class="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>FOTO NOTA / BUKTI TRANSAKSI</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Formats: JPG, JPEG, PNG (Maks 5MB)</span>
+                </label>
+                <div id="txNotaDropzone" class="border-2 border-dashed border-slate-300 rounded-xl p-3 text-center bg-slate-50 hover:bg-slate-100 transition relative">
+                    <input type="file" id="txNotaFile" accept="image/png, image/jpeg, image/jpg" onchange="handleNotaFileSelect(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    
+                    <div id="txNotaUploadPrompt" class="space-y-1">
+                        <i class="fa-solid fa-cloud-arrow-up text-indigo-500 text-xl"></i>
+                        <p class="text-xs font-medium text-slate-600">Klik atau seret foto nota ke sini</p>
+                        <p class="text-[10px] text-slate-400">Otomatis tersimpan permanen di Google Drive</p>
+                    </div>
+
+                    <div id="txNotaPreviewContainer" class="hidden flex-col items-center space-y-2 relative z-20">
+                        <img id="txNotaPreviewImg" src="" alt="Preview Nota" class="max-h-36 rounded-lg border border-slate-200 shadow-sm object-contain">
+                        <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded-md border text-xs text-slate-700">
+                            <i class="fa-solid fa-paperclip text-indigo-500"></i>
+                            <span id="txNotaFileName" class="truncate max-w-[180px] font-medium"></span>
+                        </div>
+                        <div class="flex space-x-2 pt-1">
+                            <label for="txNotaFile" class="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg text-xs font-semibold transition">
+                                <i class="fa-solid fa-arrows-rotate mr-1"></i>Ganti Foto
+                            </label>
+                            <button type="button" onclick="removeNotaFile(event)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg text-xs font-semibold transition">
+                                <i class="fa-solid fa-trash mr-1"></i>Hapus Foto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="p-4 bg-slate-50 flex justify-end space-x-3">
+            <button onclick="closeModalNewTransaction()" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Batal</button>
+            <button id="btnSaveTx" onclick="saveNewTransaction()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold flex items-center">Simpan Transaksi</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SEKSI -->
+<div id="modalNewSeksi" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6">
+        <h3 class="font-bold mb-4">Tambah Seksi Baru</h3>
+        <input type="text" id="inputSeksiName" placeholder="Nama Seksi (cth: Seksi Acara)" class="w-full mb-3 px-3 py-2 border rounded-xl text-sm">
+        <input type="text" id="inputSeksiPJ" placeholder="Penanggung Jawab" class="w-full mb-3 px-3 py-2 border rounded-xl text-sm">
+        <input type="text" inputmode="numeric" id="inputSeksiPagu" oninput="formatRibuan(this)" placeholder="Pagu Anggaran (Rp)" class="w-full mb-4 px-3 py-2 border rounded-xl text-sm font-semibold">
+        <div class="flex justify-end space-x-2">
+            <button onclick="document.getElementById('modalNewSeksi').classList.add('hidden')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Batal</button>
+            <button onclick="saveNewSeksi()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Simpan Seksi</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ASET -->
+<div id="modalNewAsset" class="fixed inset-0 bg-slate-900/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6">
+        <h3 class="font-bold mb-4">Catat Barang Aset</h3>
+        <input type="text" id="assetName" placeholder="Nama Barang" class="w-full mb-3 px-3 py-2 border rounded-xl text-sm">
+        <select id="assetSeksi" class="w-full mb-3 px-3 py-2 border rounded-xl text-sm"></select>
+        <input type="number" id="assetQty" placeholder="Jumlah Unit" class="w-full mb-3 px-3 py-2 border rounded-xl text-sm">
+        <input type="text" inputmode="numeric" id="assetPrice" oninput="formatRibuan(this)" placeholder="Harga Satuan (Rp)" class="w-full mb-4 px-3 py-2 border rounded-xl text-sm font-semibold">
+        <div class="flex justify-end space-x-2">
+            <button onclick="document.getElementById('modalNewAsset').classList.add('hidden')" class="px-4 py-2 bg-slate-200 rounded-xl text-sm">Batal</button>
+            <button onclick="saveNewAsset()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold">Simpan Aset</button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript Logic -->
+<script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyjXuCD0SooLBd20fJ1jd1l52qdw005NdAXSKdY70P35rNBnydmsz04nwPLd0FrAvab/exec";
+    const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
+    
+    let appState = {
+        currentEvent: "", chairperson: "", treasurer: "", pastorParoki: "", driveFolder: "",
+        userRole: "", events: [], seksi: [], transactions: [], assets: []
+    };
+
+    let selectedNotaFile = null;
+    let editingTxId = null;
+
+    function getTanggalMamasa() {
+        const today = new Date();
+        const options = { day: 'numeric', month: 'long', year: 'numeric' };
+        return `Mamasa, ${today.toLocaleDateString('id-ID', options)}`;
+    }
+
+    function ensureAppStateData() {
+        if (!appState) appState = {};
+        if (!Array.isArray(appState.events)) appState.events = [];
+        if (!Array.isArray(appState.seksi)) appState.seksi = [];
+        if (!Array.isArray(appState.transactions)) appState.transactions = [];
+        if (!Array.isArray(appState.assets)) appState.assets = [];
+        if (!appState.accessPins || typeof appState.accessPins !== 'object') appState.accessPins = {};
+    }
+
+    function formatRibuan(element) {
+        let value = element.value.replace(/\D/g, ''); 
+        if (!value) {
+            element.value = '';
+            return;
+        }
+        element.value = parseInt(value, 10).toLocaleString('id-ID'); 
+    }
+
+    function cleanNumber(valStr) {
+        if (!valStr) return 0;
+        let cleaned = valStr.toString().replace(/\D/g, ''); 
+        return parseInt(cleaned, 10) || 0;
+    }
+
+    window.onload = function() {
+        ensureAppStateData();
+        checkAuthSession();
+        loadDataFromCloud();
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+    };
+
+    // --- NORMALIZE TRANSAKSI UNTUK KOMPATIBILITAS DATA LAMA & BARU ---
+    function normalizeTx(t) {
+        let type = t.type;
+        let pihakName = t.pihakTerkait || t.pihakName || "";
+        let sumberDana = t.sumberDana || "";
+        let isPenerimaanKasUtama = false;
+        let isPengeluaranKasUtama = false;
+        let isTerimaSeksi = false;
+        let isBelanjaSeksi = false;
+
+        if (type === 'pemasukan_umum') {
+            isPenerimaanKasUtama = true;
+            pihakName = pihakName || "Bendahara Panitia";
+        } else if (type === 'terima_dana_seksi') {
+            isPengeluaranKasUtama = true;
+            isTerimaSeksi = true;
+        } else if (type === 'belanja_seksi') {
+            isBelanjaSeksi = true;
+        } else if (type === 'penerimaan') {
+            if (pihakName === 'Bendahara Panitia') {
+                isPenerimaanKasUtama = true;
+            } else {
+                isTerimaSeksi = true;
+            }
+        } else if (type === 'pengeluaran') {
+            if (pihakName === 'Bendahara Panitia') {
+                isPengeluaranKasUtama = true;
+            } else {
+                let cat = t.pengeluaranCat || 'dropping';
+                if (cat === 'dropping') {
+                    isPengeluaranKasUtama = true;
+                    isTerimaSeksi = true;
+                } else {
+                    isBelanjaSeksi = true;
+                }
+            }
+        }
+
+        return {
+            isPenerimaanKasUtama,
+            isPengeluaranKasUtama,
+            isTerimaSeksi,
+            isBelanjaSeksi,
+            pihakName,
+            sumberDana
+        };
+    }
+
+    // --- HELPER KODE PIHAK UNTUK NO BUKTI OTOMATIS ---
+    function getKodePihak(pihakName) {
+        if (!pihakName) return "BP";
+        if (pihakName === "Bendahara Panitia") return "BP";
+        if (pihakName === "Seksi Usaha Dana") return "SUD";
+        if (pihakName === "Seksi Acara") return "SA";
+        
+        let clean = pihakName.replace(/^seksi\s+/i, '');
+        let words = clean.trim().split(/\s+/);
+        if (words.length >= 2) {
+            return ('S' + words.map(w => w[0]).join('')).toUpperCase();
+        } else if (clean.length >= 1) {
+            return ('S' + clean.substring(0, 2)).toUpperCase();
+        }
+        return "SK";
+    }
+
+    // --- AUTO-GENERATE NOMOR BUKTI/NOTA OTOMATIS ---
+    function generateAutoNoNota(type, pihakName) {
+        const prefix = (type === 'penerimaan' ? 'KM-' : 'KK-') + getKodePihak(pihakName) + '-';
+        const activeTxs = appState.transactions.filter(t => t.eventName === appState.currentEvent && t.noNota && t.noNota.startsWith(prefix));
+        
+        let maxSeq = 0;
+        activeTxs.forEach(t => {
+            const parts = t.noNota.split('-');
+            const seq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(seq) && seq > maxSeq) {
+                maxSeq = seq;
+            }
+        });
+
+        const nextSeq = maxSeq + 1;
+        return prefix + String(nextSeq).padStart(3, '0');
+    }
+
+    // --- HANDLER FILE UPLOAD NOTA ---
+    function handleNotaFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+            alert("Mohon pilih file foto berformat JPG, JPEG, atau PNG!");
+            event.target.value = '';
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert("Ukuran foto terlalu besar! Maksimal 5MB.");
+            event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            selectedNotaFile = {
+                fileName: file.name,
+                mimeType: file.type,
+                base64: e.target.result
+            };
+            document.getElementById('txNotaPreviewImg').src = e.target.result;
+            document.getElementById('txNotaFileName').innerText = file.name;
+            document.getElementById('txNotaUploadPrompt').classList.add('hidden');
+            document.getElementById('txNotaPreviewContainer').classList.remove('hidden');
+            document.getElementById('txNotaPreviewContainer').classList.add('flex');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeNotaFile(event) {
+        if (event) event.stopPropagation();
+        selectedNotaFile = null;
+        document.getElementById('txNotaFile').value = '';
+        document.getElementById('txNotaPreviewImg').src = '';
+        document.getElementById('txNotaFileName').innerText = '';
+        document.getElementById('txNotaPreviewContainer').classList.add('hidden');
+        document.getElementById('txNotaPreviewContainer').classList.remove('flex');
+        document.getElementById('txNotaUploadPrompt').classList.remove('hidden');
+    }
+
+    async function loadDataFromCloud() {
+        showNotification("Memuat data dari Google Drive terpusat...", "info");
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("URL_WEB_APP_GAS_ANDA")) {
+            let saved = localStorage.getItem('lpj_app_state');
+            if (saved) appState = JSON.parse(saved);
+            ensureAppStateData();
+            refreshAllViews();
+            return;
+        }
+        try {
+            const res = await fetch(APPS_SCRIPT_URL + "?action=getData");
+            const cloudData = await res.json();
+            if (cloudData && cloudData.events) {
+                appState = cloudData;
+                ensureAppStateData();
+                localStorage.setItem('lpj_app_state', JSON.stringify(appState));
+                showNotification("Data terpusat berhasil dimuat!", "success");
+            }
+        } catch (e) {
+            console.error("Gagal load dari cloud:", e);
+            let saved = localStorage.getItem('lpj_app_state');
+            if (saved) appState = JSON.parse(saved);
+            ensureAppStateData();
+            showNotification("Gagal terhubung ke Cloud, menggunakan data lokal.", "error");
+        }
+        if (appState.events.length > 0 && !appState.currentEvent) {
+            switchEvent(appState.events[0].name);
+        } else {
+            refreshAllViews();
+        }
+    }
+
+    async function saveStateToCloud() {
+        ensureAppStateData();
+        // Foto nota yang sudah di Google Drive tidak ikut disimpan sebagai base64 (agar data tidak terlalu besar)
+        const stateJson = JSON.stringify(stripNotaBase64(appState));
+        try { localStorage.setItem('lpj_app_state', stateJson); } catch (eLs) { console.warn("Penyimpanan lokal penuh:", eLs); }
+        const statusEl = document.getElementById('gasStatusIndicator');
+        if (statusEl) statusEl.innerText = "Menyimpan ke Cloud...";
+
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("URL_WEB_APP_GAS_ANDA")) {
+            if (statusEl) statusEl.innerText = "Simpan Lokal";
+            return;
+        }
+
+        try {
+            await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveAll', data: JSON.parse(stateJson) })
+            });
+            if (statusEl) statusEl.innerText = "Tersimpan di Cloud Google Drive";
+        } catch (e) {
+            console.error("Gagal simpan ke cloud:", e);
+            if (statusEl) statusEl.innerText = "Gagal Simpan Cloud";
+        }
+    }
+
+    function stripNotaBase64(state) {
+        const clone = JSON.parse(JSON.stringify(state));
+        (clone.transactions || []).forEach(t => {
+            if (t.notaPhoto && t.notaPhoto.fileUrl && !String(t.notaPhoto.fileId || '').startsWith('LOCAL_')) {
+                delete t.notaPhoto.base64;
+            }
+        });
+        return clone;
+    }
+
+    // Ambil foto nota dari Google Drive (untuk lampiran PDF) bila belum ada di perangkat ini
+    async function hydrateNotaImages(txs) {
+        if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("URL_WEB_APP_GAS_ANDA")) return;
+        for (const t of txs) {
+            const p = t.notaPhoto;
+            if (p && !p.base64 && p.fileId && !String(p.fileId).startsWith('LOCAL_')) {
+                try {
+                    const res = await fetch(APPS_SCRIPT_URL + "?action=getNota&fileId=" + encodeURIComponent(p.fileId));
+                    const r = await res.json();
+                    if (r && r.status === 'success') p.base64 = r.base64;
+                } catch (e) {
+                    console.error("Gagal mengambil foto nota dari Drive:", e);
+                }
+            }
+        }
+    }
+
+    function checkAuthSession() {
+        if (!sessionStorage.getItem('userRole')) document.getElementById('loginModal').classList.remove('hidden');
+        else applyRoleAccess(sessionStorage.getItem('userRole'));
+    }
+
+    function processLogin() {
+        const role = document.getElementById('loginRole').value;
+        const pass = document.getElementById('loginPassword').value;
+        if (role === 'panitia') {
+            const akun = document.getElementById('loginAkun').value;
+            if (!akun) return alert("Pilih Bendahara Panitia / Seksi terlebih dahulu. Pastikan Super Admin sudah membuat kepanitiaan dan seksinya.");
+            const pin = getAkunPin(akun);
+            if (!pin) return alert("Password untuk akun ini belum dibuat oleh Super Admin.");
+            if (pass !== pin) return alert("Password salah!");
+            sessionStorage.setItem('userRole', 'panitia');
+            sessionStorage.setItem('userAkun', akun);
+        } else {
+            if (pass !== PASSWORDS.admin) return alert("Password salah!");
+            sessionStorage.setItem('userRole', 'admin');
+            sessionStorage.removeItem('userAkun');
+        }
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginModal').classList.add('hidden');
+        applyRoleAccess(role);
+        refreshAllViews();
+    }
+
+    function applyRoleAccess(role) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = role === 'admin' ? '' : 'none');
+        document.getElementById('activeUserRoleDisplay').innerText = role === 'admin' ? 'Super Admin' : (sessionStorage.getItem('userAkun') || 'Panitia Pelaksana');
+    }
+
+    function triggerLogout() { sessionStorage.clear(); location.reload(); }
+
+    // --- AKUN & PASSWORD 4 DIGIT BENDAHARA / SEKSI (DIBUAT SUPER ADMIN) ---
+    function getAkunList() {
+        ensureAppStateData();
+        if (!appState.currentEvent) return [];
+        const seksiNames = appState.seksi.filter(s => s.eventName === appState.currentEvent).map(s => s.name);
+        return ['Bendahara Panitia', ...seksiNames];
+    }
+
+    function getAkunPin(akun) {
+        ensureAppStateData();
+        return appState.accessPins[`${appState.currentEvent}||${akun}`] || '';
+    }
+
+    function toggleLoginAkun() {
+        const role = document.getElementById('loginRole').value;
+        document.getElementById('loginAkunWrapper').classList.toggle('hidden', role !== 'panitia');
+        populateLoginAkun();
+    }
+
+    function populateLoginAkun() {
+        const sel = document.getElementById('loginAkun');
+        if (!sel) return;
+        const prev = sel.value;
+        const list = getAkunList();
+        sel.innerHTML = list.map(a => `<option value="${a}">${a}</option>`).join('') || '<option value="">Belum ada kepanitiaan</option>';
+        if (prev && list.includes(prev)) sel.value = prev;
+    }
+
+    function formatPin(el) {
+        el.value = el.value.replace(/\D/g, '').slice(0, 4);
+    }
+
+    function renderAkunAccess() {
+        const body = document.getElementById('akunAccessTableBody');
+        if (!body) return;
+        const list = getAkunList();
+        body.innerHTML = list.map((a, i) => {
+            const pin = getAkunPin(a);
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2.5 px-4 font-semibold">${a}</td>
+                <td class="py-2.5 px-4"><input type="text" inputmode="numeric" maxlength="4" id="pinInput_${i}" value="${pin}" oninput="formatPin(this)" placeholder="0000" class="w-28 px-3 py-1.5 rounded-xl border text-sm font-mono tracking-widest"></td>
+                <td class="py-2.5 px-4 text-xs">${pin ? '<span class="text-emerald-600 font-semibold">Sudah dibuat</span>' : '<span class="text-amber-600 font-semibold">Belum dibuat</span>'}</td>
+                <td class="py-2.5 px-4 text-right"><button onclick="saveAkunPin(${i})" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-medium">Simpan</button></td>
+            </tr>`;
+        }).join('') || `<tr><td colspan="4" class="py-4 text-center text-slate-400">Pilih atau buat event terlebih dahulu.</td></tr>`;
+    }
+
+    function saveAkunPin(i) {
+        if (sessionStorage.getItem('userRole') !== 'admin') {
+            return alert("Akses Ditolak: Hanya Super Admin yang dapat membuat password!");
+        }
+        ensureAppStateData();
+        const akun = getAkunList()[i];
+        const val = document.getElementById('pinInput_' + i).value.trim();
+        if (!akun) return;
+        if (!/^\d{4}$/.test(val)) return alert("Password harus berupa 4 digit angka!");
+        appState.accessPins[`${appState.currentEvent}||${akun}`] = val;
+        saveStateToCloud();
+        renderAkunAccess();
+        showNotification(`Password ${akun} berhasil disimpan!`);
+    }
+
+    function showNotification(msg, type = 'success') {
+        const area = document.getElementById('notificationArea');
+        if (!area) return;
+        const bgClass = type === 'error' ? 'bg-rose-50 text-rose-800 border-rose-200' : (type === 'info' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200');
+        area.innerHTML = `<div class="p-3 rounded-xl border ${bgClass} text-xs font-semibold">${msg}</div>`;
+        setTimeout(() => { if (area.firstChild) area.innerHTML = ''; }, 4000);
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById(`content-${tabId}`).classList.remove('hidden');
+    }
+
+    function switchEvent(eventName) {
+        if (sessionStorage.getItem('userRole') === 'panitia' && appState.currentEvent && appState.currentEvent !== eventName) {
+            showNotification("Akses ditolak: Panitia tidak diizinkan mengganti event kepanitiaan!", "error");
+            return;
+        }
+        ensureAppStateData();
+        const ev = appState.events.find(e => e.name === eventName);
+        if(ev) {
+            appState.currentEvent = ev.name;
+            appState.chairperson = ev.chair;
+            appState.treasurer = ev.treasurer || '-';
+            appState.pastorParoki = ev.pastorParoki || '-';
+            appState.driveFolder = ev.folder;
+            saveStateToCloud();
+            refreshAllViews();
+        }
+    }
+
+    function refreshAllViews() {
+        ensureAppStateData();
+        populateSelects();
+        renderDashboard();
+        renderBKU();
+        renderSeksi();
+        renderAssets();
+        renderAkunAccess();
+        const roleNow = sessionStorage.getItem('userRole');
+        if (roleNow) applyRoleAccess(roleNow);
+    }
+
+    function populateSelects() {
+        ensureAppStateData();
+        const opts = appState.events.map(e => `<option value="${e.name}" ${e.name===appState.currentEvent?'selected':''}>${e.name}</option>`).join('');
+        document.getElementById('headerEventSelect').innerHTML = opts || '<option value="">Belum Ada Event</option>';
+        document.getElementById('dashboardEventSelect').innerHTML = opts || '<option value="">Belum Ada Event</option>';
+        populateLoginAkun();
+        document.getElementById('assetSeksi').innerHTML = appState.seksi.filter(s=>s.eventName===appState.currentEvent).map(s => `<option value="${s.id}">${s.name}</option>`).join('') || '<option value="">Tambahkan Seksi Dahulu</option>';
+    }
+
+    function openModalNewEvent() { document.getElementById('modalNewEvent').classList.remove('hidden'); }
+    function closeModalNewEvent() { document.getElementById('modalNewEvent').classList.add('hidden'); }
+    
+    function saveNewEvent() {
+        ensureAppStateData();
+        const name = document.getElementById('inputEventName').value.trim();
+        const chair = document.getElementById('inputEventChair').value.trim();
+        const treasurer = document.getElementById('inputEventTreasurer').value.trim();
+        const pastor = document.getElementById('inputEventPastor').value.trim();
+
+        if(!name || !chair) return alert("Mohon isi nama event dan ketua panitia!");
+        
+        appState.events.push({ id: Date.now(), name, chair, treasurer, pastorParoki: pastor, folder: `/Root/${name.replace(/\s/g,'_')}` });
+        
+        // PERUBAHAN 8: OTOMATIS BUAT SEKSI USAHA DANA
+        const existSUD = appState.seksi.find(s => s.eventName === name && s.name === "Seksi Usaha Dana");
+        if (!existSUD) {
+            appState.seksi.push({ id: Date.now() + 1, eventName: name, name: "Seksi Usaha Dana", pj: "-", pagu: 0 });
+        }
+
+        appState.currentEvent = name; 
+        appState.chairperson = chair; 
+        appState.treasurer = treasurer;
+        appState.pastorParoki = pastor;
+
+        saveStateToCloud(); 
+        closeModalNewEvent(); 
+        refreshAllViews();
+        showNotification(`Event ${name} dan Seksi Usaha Dana otomatis berhasil dibuat!`);
+    }
+
+    // --- HANDLER MODAL TRANSAKSI (CREATE & EDIT) ---
+    function openModalNewTransaction() { 
+        editingTxId = null;
+        document.getElementById('modalTxTitle').innerText = "Catat Transaksi Kas";
+        document.getElementById('modalNewTransaction').classList.remove('hidden'); 
+        document.getElementById('txAmount').value = '';
+        document.getElementById('txType').value = 'penerimaan';
+        document.getElementById('txDesc').value = '';
+        removeNotaFile();
+        handleTxFormChange(); 
+    }
+
+    function closeModalNewTransaction() { 
+        editingTxId = null;
+        removeNotaFile();
+        document.getElementById('modalNewTransaction').classList.add('hidden'); 
+    }
+
+    function handleTxFormChange() {
+        const type = document.getElementById('txType').value;
+        const pihakSelect = document.getElementById('txPihak');
+        const activeSeksi = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+
+        // Alur khusus login Bendahara Panitia / Seksi
+        if (sessionStorage.getItem('userRole') === 'panitia') {
+            handleTxFormChangePanitia(type, pihakSelect);
+            return;
+        }
+
+        // Alur Super Admin (tetap seperti sebelumnya)
+        document.getElementById('txPihakWrapper').classList.remove('hidden');
+        document.getElementById('txPihakLabel').innerText = (type === 'penerimaan') ? 'Diterima dari' : 'Pihak Terkait';
+
+        let currentPihakVal = pihakSelect.value;
+        
+        if (type === 'penerimaan') {
+            pihakSelect.innerHTML = `
+                <option value="Bendahara Panitia">Bendahara Panitia</option>
+                <option value="Seksi Usaha Dana">Seksi Usaha Dana</option>
+            `;
+        } else {
+            let seksiOptions = activeSeksi.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            pihakSelect.innerHTML = `
+                <option value="Bendahara Panitia">Bendahara Panitia</option>
+                ${seksiOptions}
+            `;
+        }
+
+        if (currentPihakVal && Array.from(pihakSelect.options).some(o => o.value === currentPihakVal)) {
+            pihakSelect.value = currentPihakVal;
+        }
+
+        const selectedPihak = pihakSelect.value || "Bendahara Panitia";
+
+        // Control Sumber Dana Wrapper
+        const sumberDanaWrapper = document.getElementById('txSumberDanaWrapper');
+        if (type === 'penerimaan' && selectedPihak === 'Bendahara Panitia') {
+            sumberDanaWrapper.classList.remove('hidden');
+        } else {
+            sumberDanaWrapper.classList.add('hidden');
+        }
+
+        // Control Sub-Pengeluaran Seksi Wrapper
+        const catPengeluaranWrapper = document.getElementById('txPengeluaranCatWrapper');
+        if (type === 'pengeluaran' && selectedPihak !== 'Bendahara Panitia') {
+            catPengeluaranWrapper.classList.remove('hidden');
+        } else {
+            catPengeluaranWrapper.classList.add('hidden');
+        }
+
+        // Control Uraian Transaksi
+        const uraianSelectWrapper = document.getElementById('txUraianSelectWrapper');
+        const descInput = document.getElementById('txDesc');
+        
+        if (type === 'penerimaan') {
+            uraianSelectWrapper.classList.remove('hidden');
+            handleUraianSelectChange();
+        } else {
+            uraianSelectWrapper.classList.add('hidden');
+            descInput.readOnly = false;
+            descInput.classList.remove('bg-slate-100');
+        }
+
+        // Update Auto No. Bukti Nota
+        if (!editingTxId) {
+            document.getElementById('txNoNota').value = generateAutoNoNota(type, selectedPihak);
+        }
+    }
+
+    // --- ALUR CATAT TRANSAKSI UNTUK LOGIN BENDAHARA PANITIA / SEKSI ---
+    function handleTxFormChangePanitia(type, pihakSelect) {
+        const akun = sessionStorage.getItem('userAkun') || 'Bendahara Panitia';
+        const isBendahara = (akun === 'Bendahara Panitia');
+        const pihakWrapper = document.getElementById('txPihakWrapper');
+        const sumberDanaWrapper = document.getElementById('txSumberDanaWrapper');
+        const descInput = document.getElementById('txDesc');
+
+        document.getElementById('txPengeluaranCatWrapper').classList.add('hidden');
+        document.getElementById('txUraianSelectWrapper').classList.add('hidden');
+        document.getElementById('txPihakLabel').innerText = 'Diterima dari';
+        pihakSelect.disabled = false;
+
+        let uraianOtomatis = false;
+
+        if (isBendahara) {
+            // Bendahara: kotak "Diterima dari" dihilangkan; penerimaan -> Sumber Dana, pengeluaran -> langsung uraian
+            pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
+            pihakWrapper.classList.add('hidden');
+            if (type === 'penerimaan') sumberDanaWrapper.classList.remove('hidden');
+            else sumberDanaWrapper.classList.add('hidden');
+        } else {
+            sumberDanaWrapper.classList.add('hidden');
+            if (type === 'penerimaan') {
+                // Seksi menerima dana: Diterima dari otomatis Bendahara Panitia, uraian otomatis
+                pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
+                pihakSelect.disabled = true;
+                pihakWrapper.classList.remove('hidden');
+                uraianOtomatis = true;
+            } else {
+                // Seksi pengeluaran: langsung uraian, nominal, foto nota
+                pihakSelect.innerHTML = `<option value="${akun}">${akun}</option>`;
+                pihakWrapper.classList.add('hidden');
+            }
+        }
+
+        if (uraianOtomatis) {
+            descInput.value = 'Terima Dana dari Bendahara Panitia';
+            descInput.readOnly = true;
+            descInput.classList.add('bg-slate-100');
+        } else {
+            if (descInput.readOnly) descInput.value = '';
+            descInput.readOnly = false;
+            descInput.classList.remove('bg-slate-100');
+        }
+
+        if (!editingTxId) {
+            document.getElementById('txNoNota').value = generateAutoNoNota(type, akun);
+        }
+    }
+
+    function handleUraianSelectChange() {
+        const val = document.getElementById('txUraianSelect').value;
+        const descInput = document.getElementById('txDesc');
+        if (val === 'Terima Dana dari Bendahara Panitia') {
+            descInput.value = 'Terima Dana dari Bendahara Panitia';
+            descInput.readOnly = true;
+            descInput.classList.add('bg-slate-100');
+        } else {
+            if (descInput.readOnly) descInput.value = '';
+            descInput.readOnly = false;
+            descInput.classList.remove('bg-slate-100');
+        }
+    }
+
+    // --- SUPER ADMIN EDIT TRANSACTION ---
+    function openEditTransactionModal(id) {
+        if (sessionStorage.getItem('userRole') !== 'admin') {
+            return alert("Akses Ditolak: Hanya Super Admin yang dapat mengedit transaksi!");
+        }
+        ensureAppStateData();
+        const tx = appState.transactions.find(t => t.id === id);
+        if (!tx) return;
+
+        editingTxId = tx.id;
+        document.getElementById('modalTxTitle').innerText = "Edit Transaksi Kas";
+        document.getElementById('modalNewTransaction').classList.remove('hidden');
+
+        document.getElementById('txNoNota').value = tx.noNota;
+        document.getElementById('txDate').value = tx.date;
+        document.getElementById('txType').value = tx.type === 'pemasukan_umum' ? 'penerimaan' : (tx.type === 'terima_dana_seksi' || tx.type === 'belanja_seksi' ? 'pengeluaran' : tx.type);
+        
+        handleTxFormChange();
+
+        if (tx.pihakTerkait) document.getElementById('txPihak').value = tx.pihakTerkait;
+        if (tx.sumberDana) document.getElementById('txSumberDana').value = tx.sumberDana;
+        if (tx.pengeluaranCat) document.getElementById('txPengeluaranCat').value = tx.pengeluaranCat;
+        
+        document.getElementById('txDesc').value = tx.desc;
+        document.getElementById('txAmount').value = Number(tx.amount).toLocaleString('id-ID');
+
+        removeNotaFile();
+        if (tx.notaPhoto && (tx.notaPhoto.fileUrl || tx.notaPhoto.base64)) {
+            document.getElementById('txNotaPreviewImg').src = tx.notaPhoto.fileUrl || tx.notaPhoto.base64;
+            document.getElementById('txNotaFileName').innerText = tx.notaPhoto.fileName || 'Foto Nota Tersimpan';
+            document.getElementById('txNotaUploadPrompt').classList.add('hidden');
+            document.getElementById('txNotaPreviewContainer').classList.remove('hidden');
+            document.getElementById('txNotaPreviewContainer').classList.add('flex');
+        }
+    }
+
+    async function saveNewTransaction() {
+        ensureAppStateData();
+        const noNota = document.getElementById('txNoNota').value.trim();
+        const date = document.getElementById('txDate').value;
+        const uiType = document.getElementById('txType').value;
+        const roleNow = sessionStorage.getItem('userRole');
+        const akunNow = sessionStorage.getItem('userAkun') || '';
+        const isSeksiLogin = (roleNow === 'panitia' && akunNow && akunNow !== 'Bendahara Panitia');
+        let type = uiType;
+        let pihakTerkait = document.getElementById('txPihak').value;
+        if (isSeksiLogin) {
+            // Seksi: penerimaan = dana dari Bendahara (dropping ke seksi), pengeluaran = belanja seksi
+            pihakTerkait = akunNow;
+            type = 'pengeluaran';
+        } else if (roleNow === 'panitia') {
+            pihakTerkait = 'Bendahara Panitia';
+        }
+        const desc = document.getElementById('txDesc').value.trim();
+        const amount = cleanNumber(document.getElementById('txAmount').value);
+        
+        const sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
+        const pengeluaranCat = isSeksiLogin
+            ? (uiType === 'penerimaan' ? 'dropping' : 'belanja')
+            : ((type === 'pengeluaran' && pihakTerkait !== 'Bendahara Panitia') ? document.getElementById('txPengeluaranCat').value : '');
+
+        if(!noNota || !desc || !amount) return alert("Lengkapi data transaksi dan nominal yang valid!");
+
+        let seksiId = null;
+        if (pihakTerkait !== 'Bendahara Panitia') {
+            const sObj = appState.seksi.find(s => s.eventName === appState.currentEvent && s.name === pihakTerkait);
+            if (sObj) seksiId = sObj.id;
+        }
+
+        let existingTx = editingTxId ? appState.transactions.find(t => t.id === editingTxId) : null;
+        let notaPhotoData = existingTx ? existingTx.notaPhoto : null;
+
+        // Jika ada foto nota baru yang dipilih
+        if (selectedNotaFile) {
+            const btnSave = document.getElementById('btnSaveTx');
+            const originalText = btnSave.innerHTML;
+            btnSave.disabled = true;
+            btnSave.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Mengunggah Foto Nota...`;
+
+            try {
+                if (APPS_SCRIPT_URL && !APPS_SCRIPT_URL.includes("URL_WEB_APP_GAS_ANDA")) {
+                    const uploadRes = await fetch(APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'uploadNota',
+                            fileData: selectedNotaFile.base64,
+                            fileName: `NOTA_${noNota.replace(/[^a-zA-Z0-9_-]/g, '_')}_${date}_${selectedNotaFile.fileName}`,
+                            mimeType: selectedNotaFile.mimeType,
+                            eventName: appState.currentEvent || "Event_Umum",
+                            seksiName: pihakTerkait
+                        })
+                    });
+
+                    const uploadResult = await uploadRes.json();
+                    if (uploadResult && uploadResult.status === 'success') {
+                        notaPhotoData = {
+                            fileId: uploadResult.fileId,
+                            fileName: uploadResult.fileName,
+                            fileUrl: uploadResult.fileUrl,
+                            base64: selectedNotaFile.base64
+                        };
+                    } else {
+                        throw new Error((uploadResult && uploadResult.message) ? uploadResult.message : "Respon server tidak valid");
+                    }
+                } else {
+                    notaPhotoData = { fileId: `LOCAL_${Date.now()}`, fileName: selectedNotaFile.fileName, fileUrl: "", base64: selectedNotaFile.base64 };
+                }
+            } catch (err) {
+                console.error("Gagal mengunggah foto nota:", err);
+                alert("Foto nota gagal diunggah ke Google Drive, transaksi belum disimpan.\n\nDetail: " + err.message + "\n\nPastikan Apps Script sudah di-deploy ulang (New version) dan izin Google Drive sudah diberikan, lalu coba lagi.");
+                return;
+            } finally {
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalText;
+            }
+        }
+
+        const txPayload = {
+            id: editingTxId ? editingTxId : Date.now(),
+            eventName: appState.currentEvent,
+            noNota,
+            date,
+            type,
+            pihakTerkait,
+            seksiId,
+            desc,
+            amount,
+            sumberDana,
+            pengeluaranCat,
+            notaPhoto: notaPhotoData
+        };
+
+        if (editingTxId) {
+            const idx = appState.transactions.findIndex(t => t.id === editingTxId);
+            if (idx !== -1) appState.transactions[idx] = txPayload;
+        } else {
+            appState.transactions.push(txPayload);
+        }
+
+        saveStateToCloud(); 
+        closeModalNewTransaction(); 
+        refreshAllViews();
+        showNotification(editingTxId ? "Transaksi berhasil diperbarui!" : "Transaksi berhasil disimpan!");
+    }
+
+    // --- SUPER ADMIN HAPUS TRANSAKSI ---
+    function deleteTransaction(id) {
+        if (sessionStorage.getItem('userRole') !== 'admin') {
+            return alert("Akses Ditolak: Hanya Super Admin yang dapat menghapus transaksi!");
+        }
+        if (!confirm("Apakah Anda yakin ingin menghapus transaksi ini secara permanen?")) return;
+        ensureAppStateData();
+        appState.transactions = appState.transactions.filter(t => t.id !== id);
+        saveStateToCloud();
+        refreshAllViews();
+        showNotification("Transaksi telah dihapus!");
+    }
+
+    // --- SUPER ADMIN HAPUS EVENT ---
+    function deleteEvent(eventName) {
+        if (sessionStorage.getItem('userRole') !== 'admin') {
+            return alert("Akses Ditolak: Hanya Super Admin yang dapat menghapus event!");
+        }
+        if (!confirm(`Apakah Anda YAKIN ingin menghapus event "${eventName}" dan SELURUH data transaksi/seksi/aset terkait secara permanen?`)) return;
+        
+        ensureAppStateData();
+        appState.events = appState.events.filter(e => e.name !== eventName);
+        appState.seksi = appState.seksi.filter(s => s.eventName !== eventName);
+        appState.transactions = appState.transactions.filter(t => t.eventName !== eventName);
+        appState.assets = appState.assets.filter(a => a.eventName !== eventName);
+
+        if (appState.currentEvent === eventName) {
+            appState.currentEvent = appState.events.length > 0 ? appState.events[0].name : "";
+            if (appState.events.length > 0) {
+                appState.chairperson = appState.events[0].chair;
+                appState.treasurer = appState.events[0].treasurer || '-';
+                appState.pastorParoki = appState.events[0].pastorParoki || '-';
+            } else {
+                appState.chairperson = ""; appState.treasurer = ""; appState.pastorParoki = "";
+            }
+        }
+
+        saveStateToCloud();
+        refreshAllViews();
+        showNotification(`Event ${eventName} beserta data terkait berhasil dihapus!`);
+    }
+
+    function openModalNewSeksi() { 
+        document.getElementById('modalNewSeksi').classList.remove('hidden'); 
+        document.getElementById('inputSeksiPagu').value = '';
+    }
+    function saveNewSeksi() {
+        ensureAppStateData();
+        const name = document.getElementById('inputSeksiName').value.trim();
+        const pj = document.getElementById('inputSeksiPJ').value.trim();
+        const pagu = cleanNumber(document.getElementById('inputSeksiPagu').value);
+
+        if(!name) return alert("Isi nama seksi!");
+        appState.seksi.push({ id: Date.now(), eventName: appState.currentEvent, name, pj, pagu });
+        saveStateToCloud(); document.getElementById('modalNewSeksi').classList.add('hidden'); refreshAllViews();
+    }
+
+    function openModalNewAsset() { 
+        document.getElementById('modalNewAsset').classList.remove('hidden'); 
+        document.getElementById('assetPrice').value = '';
+    }
+    function saveNewAsset() {
+        ensureAppStateData();
+        const name = document.getElementById('assetName').value;
+        const seksiVal = document.getElementById('assetSeksi').value;
+        const seksiId = seksiVal ? parseInt(seksiVal) : null;
+        const qty = parseInt(document.getElementById('assetQty').value);
+        const price = cleanNumber(document.getElementById('assetPrice').value);
+
+        if(!name) return alert("Isi nama barang!");
+        appState.assets.push({ id: Date.now(), eventName: appState.currentEvent, name, seksiId, qty: qty||1, price });
+        saveStateToCloud(); document.getElementById('modalNewAsset').classList.add('hidden'); refreshAllViews();
+        showNotification("Aset berhasil dicatat!");
+    }
+
+    function renderDashboard() {
+        ensureAppStateData();
+        document.getElementById('displayCurrentEventTitle').innerText = appState.currentEvent || "Belum Ada Event";
+        document.getElementById('displayChairperson').innerText = appState.chairperson || "-";
+        document.getElementById('displayTreasurer').innerText = appState.treasurer || "-";
+        document.getElementById('displayPastor').innerText = appState.pastorParoki || "-";
+        
+        const activeSeksi = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+        const activeTx = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+
+        const totalPagu = activeSeksi.reduce((sum, s) => sum + Number(s.pagu), 0);
+        
+        let totalPemasukanKasUtama = 0;
+        let totalPengeluaranKasUtama = 0;
+        let totalRealisasiBelanja = 0;
+
+        activeTx.forEach(t => {
+            const norm = normalizeTx(t);
+            if (norm.isPenerimaanKasUtama) totalPemasukanKasUtama += Number(t.amount);
+            if (norm.isPengeluaranKasUtama) totalPengeluaranKasUtama += Number(t.amount);
+            if (norm.isBelanjaSeksi) totalRealisasiBelanja += Number(t.amount);
+        });
+
+        document.getElementById('statTotalPagu').innerText = `Rp ${totalPagu.toLocaleString('id-ID')}`;
+        document.getElementById('statTotalRealisasi').innerText = `Rp ${totalRealisasiBelanja.toLocaleString('id-ID')}`;
+        document.getElementById('statTotalSaldo').innerText = `Rp ${(totalPemasukanKasUtama - totalPengeluaranKasUtama).toLocaleString('id-ID')}`;
+        document.getElementById('statFolderCount').innerText = `${appState.events.length} Event`;
+
+        const isAdmin = sessionStorage.getItem('userRole') === 'admin';
+        document.getElementById('eventTableBody').innerHTML = appState.events.map(e => `
+            <tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2.5 px-4 font-semibold">${e.name}</td>
+                <td class="py-2.5 px-4">${e.chair}</td>
+                <td class="py-2.5 px-4">${e.treasurer||'-'}</td>
+                <td class="py-2.5 px-4">${e.pastorParoki||'-'}</td>
+                <td class="py-2.5 px-4 text-right">
+                    <div class="inline-flex space-x-1">
+                        <button onclick="switchEvent('${e.name}')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-medium">Pilih</button>
+                        ${isAdmin ? `<button onclick="deleteEvent('${e.name}')" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg font-medium">Hapus</button>` : ''}
+                    </div>
+                </td>
+            </tr>
+        `).join('') || `<tr><td colspan="5" class="py-4 text-center text-slate-400">Belum ada data event.</td></tr>`;
+    }
+
+    function renderBKU() {
+        ensureAppStateData();
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        let saldo = 0;
+        const isAdmin = sessionStorage.getItem('userRole') === 'admin';
+
+        document.getElementById('bkuTableBody').innerHTML = txs.map(t => {
+            const norm = normalizeTx(t);
+            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return '';
+
+            let masuk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
+            let keluar = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
+            saldo += (masuk - keluar);
+            
+            let pihakDisplay = norm.pihakName || "Bendahara Panitia";
+            
+            // PERUBAHAN 4: URAIAN OTOMATIS BAYAR KE SEKSI
+            let displayDesc = t.desc;
+            if (norm.isPengeluaranKasUtama && pihakDisplay !== 'Bendahara Panitia') {
+                displayDesc = `Bayar ke ${pihakDisplay}`;
+            }
+
+            let notaLink = '-';
+            if (t.notaPhoto) {
+                const targetUrl = t.notaPhoto.fileUrl || t.notaPhoto.base64;
+                notaLink = `<a href="${targetUrl}" target="_blank" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    <i class="fa-solid fa-image mr-1"></i>Foto
+                </a>`;
+            }
+
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2.5 px-4 font-mono text-xs font-semibold">${t.noNota || '-'}</td>
+                <td class="py-2.5 px-4 text-xs">${t.date || '-'}</td>
+                <td class="py-2.5 px-4 text-xs font-semibold">${pihakDisplay}</td>
+                <td class="py-2.5 px-4">${displayDesc}</td>
+                <td class="py-2.5 px-4 text-center">${notaLink}</td>
+                <td class="py-2.5 px-4 text-right text-emerald-600 font-medium">${masuk ? 'Rp '+masuk.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2.5 px-4 text-right text-rose-600 font-medium">${keluar ? 'Rp '+keluar.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2.5 px-4 text-right font-bold">Rp ${saldo.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-center admin-only">
+                    <div class="inline-flex space-x-1">
+                        <button onclick="openEditTransactionModal(${t.id})" title="Edit Transaksi" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 p-1.5 rounded-lg"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteTransaction(${t.id})" title="Hapus Transaksi" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('') || `<tr><td colspan="9" class="py-4 text-center text-slate-400">Belum ada transaksi BKU.</td></tr>`;
+    }
+
+    function renderSeksi() {
+        ensureAppStateData();
+        const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const isAdmin = sessionStorage.getItem('userRole') === 'admin';
+
+        document.getElementById('seksiTableBody').innerHTML = seksis.map(s => {
+            let dTerima = 0;
+            let dBelanja = 0;
+
+            txs.forEach(t => {
+                const norm = normalizeTx(t);
+                if (norm.pihakName === s.name || t.seksiId === s.id) {
+                    if (norm.isTerimaSeksi) dTerima += Number(t.amount);
+                    if (norm.isBelanjaSeksi) dBelanja += Number(t.amount);
+                }
+            });
+
+            // ATURAN KHUSUS HASIL USAHA PANITIA (PERUBAHAN 2 & 10): Sisa Kas SUD berkurang sebesar nominal
+            let transferHasilUsaha = 0;
+            if (s.name === "Seksi Usaha Dana") {
+                txs.forEach(t => {
+                    const norm = normalizeTx(t);
+                    if (norm.isPenerimaanKasUtama && norm.sumberDana === 'Hasil Usaha Panitia') {
+                        transferHasilUsaha += Number(t.amount);
+                    }
+                });
+            }
+
+            let sisaKas = dTerima - dBelanja - transferHasilUsaha;
+            
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2.5 px-4 font-semibold">${s.name}</td>
+                <td class="py-2.5 px-4">${s.pj || '-'}</td>
+                <td class="py-2.5 px-4 text-right">Rp ${Number(s.pagu||0).toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-emerald-600 font-bold">Rp ${dTerima.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-rose-600 font-bold">Rp ${dBelanja.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-indigo-600 font-bold">Rp ${sisaKas.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.seksi=appState.seksi.filter(x=>x.id!==${s.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>
+            </tr>`;
+        }).join('') || `<tr><td colspan="7" class="py-4 text-center text-slate-400">Belum ada seksi.</td></tr>`;
+
+        const detailTxs = txs.filter(t => {
+            const norm = normalizeTx(t);
+            return norm.isTerimaSeksi || norm.isBelanjaSeksi;
+        });
+
+        document.getElementById('seksiDetailTableBody').innerHTML = detailTxs.map(t => {
+            const norm = normalizeTx(t);
+            const sName = norm.pihakName || 'Umum';
+            const msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
+            const klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
+
+            let displaySeksiDesc = t.desc;
+            if (norm.isTerimaSeksi && (!displaySeksiDesc || displaySeksiDesc.startsWith('Bayar ke'))) {
+                displaySeksiDesc = "Terima Dana dari Bendahara Panitia";
+            }
+
+            let notaLink = '-';
+            if (t.notaPhoto) {
+                const targetUrl = t.notaPhoto.fileUrl || t.notaPhoto.base64;
+                notaLink = `<a href="${targetUrl}" target="_blank" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    <i class="fa-solid fa-paperclip mr-1"></i>Nota
+                </a>`;
+            }
+
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2 px-4 font-medium text-xs">${sName}</td>
+                <td class="py-2 px-4 text-xs">${t.date || '-'}</td>
+                <td class="py-2 px-4 font-mono text-xs">${t.noNota || '-'}</td>
+                <td class="py-2 px-4 text-xs">${displaySeksiDesc}</td>
+                <td class="py-2 px-4 text-center">${notaLink}</td>
+                <td class="py-2 px-4 text-right text-emerald-600 font-medium text-xs">${msk ? 'Rp '+msk.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-right text-rose-600 font-medium text-xs">${klr ? 'Rp '+klr.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-center admin-only">
+                    <div class="inline-flex space-x-1">
+                        <button onclick="openEditTransactionModal(${t.id})" title="Edit" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteTransaction(${t.id})" title="Hapus" class="text-rose-600 hover:text-rose-900 bg-rose-50 p-1 rounded"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('') || `<tr><td colspan="8" class="py-4 text-center text-slate-400">Belum ada uraian transaksi seksi.</td></tr>`;
+    }
+
+    function renderAssets() {
+        ensureAppStateData();
+        const ast = appState.assets.filter(a => a.eventName === appState.currentEvent);
+        const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+
+        document.getElementById('assetTableBody').innerHTML = ast.map(a => {
+            const sObj = seksis.find(s => s.id === a.seksiId);
+            const sName = sObj ? sObj.name : 'Umum';
+            const totalNilai = (Number(a.qty)||1) * (Number(a.price)||0);
+
+            return `<tr class="hover:bg-slate-50 border-b border-slate-100">
+                <td class="py-2.5 px-4 font-semibold">${a.name}</td>
+                <td class="py-2.5 px-4 text-xs text-slate-600">${sName}</td>
+                <td class="py-2.5 px-4 text-center font-bold">${a.qty||1}</td>
+                <td class="py-2.5 px-4 text-right">Rp ${Number(a.price||0).toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right font-bold text-indigo-600">Rp ${totalNilai.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.assets=appState.assets.filter(x=>x.id!==${a.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>
+            </tr>`;
+        }).join('') || `<tr><td colspan="6" class="py-4 text-center text-slate-400">Belum ada barang aset.</td></tr>`;
+    }
+
+    // --- FUNGSI EKSPOR EXCEL LPJ LENGKAP ---
+    function generateExcelLPJ() {
+        ensureAppStateData();
+        if(!appState.currentEvent) return alert("Pilih event terlebih dahulu!");
+        
+        const wb = XLSX.utils.book_new();
+        const ev = appState.events.find(e => e.name === appState.currentEvent) || { name: appState.currentEvent, chair: "-", treasurer: "-", pastorParoki: "-" };
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+        const ast = appState.assets.filter(a => a.eventName === appState.currentEvent);
+        const tglMamasa = getTanggalMamasa();
+
+        // SHEET 1: BUKU KAS UMUM (BKU)
+        let aoaBku = [
+            [`KEPANITIAAN ${ev.name.toUpperCase()}`],
+            [`BUKU KAS UMUM (BKU) KAS UTAMA`],
+            [],
+            ["Tanggal", "No. Bukti", "Pihak Terkait", "Uraian Transaksi", "Penerimaan (Rp)", "Pengeluaran (Rp)", "Saldo Kas Umum (Rp)"]
+        ];
+        let sldBku = 0;
+        txs.forEach(t => {
+            const norm = normalizeTx(t);
+            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
+            
+            let msk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
+            let klr = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
+            sldBku += (msk - klr);
+
+            let pihak = norm.pihakName || "Bendahara Panitia";
+            let desc = t.desc;
+            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') desc = `Bayar ke ${pihak}`;
+
+            aoaBku.push([t.date || '-', t.noNota || '-', pihak, desc, msk, klr, sldBku]);
+        });
+        aoaBku.push([], [], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaBku), "Buku Kas Umum");
+
+        // SHEET 2: URAIAN & REKAP SEKSI
+        let aoaSeksi = [
+            [`KEPANITIAAN ${ev.name.toUpperCase()}`],
+            [`LAPORAN REKAPITULASI DAN URAIAN TRANSAKSI PER SEKSI`],
+            []
+        ];
+        seksis.forEach(s => {
+            aoaSeksi.push([`Seksi: ${s.name}`, `PJ: ${s.pj || '-'}`, `Pagu Anggaran: Rp ${s.pagu || 0}`]);
+            aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Terima Dana", "Belanja", "Sisa Kas Seksi"]);
+            
+            let kasSeksi = 0;
+            txs.forEach(t => {
+                const norm = normalizeTx(t);
+                if (norm.pihakName === s.name || t.seksiId === s.id) {
+                    if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
+                        let msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
+                        let klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
+                        kasSeksi += (msk - klr);
+                        
+                        let desc = t.desc;
+                        if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) desc = "Terima Dana dari Bendahara Panitia";
+                        aoaSeksi.push([t.date || '-', t.noNota || '-', desc, msk, klr, kasSeksi]);
+                    }
+                }
+            });
+            aoaSeksi.push([]); 
+        });
+        aoaSeksi.push([], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaSeksi), "Uraian Seksi");
+
+        // SHEET 3: INVENTARIS ASET
+        let aoaAset = [
+            [`KEPANITIAAN ${ev.name.toUpperCase()}`],
+            [`LAPORAN INVENTARIS ASET KEPANITIAAN`],
+            [],
+            ["Nama Barang Aset", "Seksi Terkait", "Jumlah Unit", "Harga Satuan (Rp)", "Total Nilai Aset (Rp)"]
+        ];
+        let totalNilaiAset = 0;
+        ast.forEach(a => {
+            const sObj = seksis.find(s => s.id === a.seksiId);
+            const sName = sObj ? sObj.name : 'Umum';
+            const qty = Number(a.qty) || 1;
+            const price = Number(a.price) || 0;
+            const tot = qty * price;
+            totalNilaiAset += tot;
+            aoaAset.push([a.name || '-', sName, qty, price, tot]);
+        });
+        aoaAset.push(["TOTAL NILAI ASET", "", "", "", totalNilaiAset]);
+        aoaAset.push([], [], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaAset), "Inventaris Aset");
+
+        XLSX.writeFile(wb, `LPJ_${ev.name.replace(/\s/g,'_')}.xlsx`);
+        showNotification("Berhasil mengekspor Sheet Excel LPJ!");
+    }
+
+    // --- FUNGSI EKSPOR PDF LPJ LENGKAP TERMASUK REKAP SUMBER DANA & PASTOR PAROKI ---
+    async function generatePdfLPJ() {
+        ensureAppStateData();
+        if(!appState.currentEvent) return alert("Pilih event terlebih dahulu!");
+        
+        const { jsPDF } = window.jspdf; 
+        const doc = new jsPDF();
+        const ev = appState.events.find(e => e.name === appState.currentEvent) || { name: appState.currentEvent, chair: "-", treasurer: "-", pastorParoki: "-" };
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+        const ast = appState.assets.filter(a => a.eventName === appState.currentEvent);
+        const tglMamasa = getTanggalMamasa();
+
+        await hydrateNotaImages(txs);
+
+        // KOP JUDUL LPJ
+        doc.setFontSize(14); 
+        doc.setFont(undefined, 'bold');
+        doc.text(`KEPANITIAAN ${ev.name.toUpperCase()}`, 14, 15);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`LAPORAN PERTANGGUNGJAWABAN (LPJ) KEUANGAN TERPADU`, 14, 21);
+        doc.text(`Ketua: ${ev.chair || '-'}  |  Pastor Paroki: ${ev.pastorParoki || '-'}  |  Bendahara: ${ev.treasurer || '-'}`, 14, 26);
+        doc.line(14, 28, 196, 28);
+
+        let currentY = 35;
+
+        // --- PERUBAHAN 3: REKAPITULASI PENERIMAAN KAS UTAMA BERDASARKAN SUMBER DANA ---
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text(`1. REKAPITULASI PENERIMAAN KAS UTAMA BERDASARKAN SUMBER DANA`, 14, currentY);
+        doc.setFont(undefined, 'normal');
+
+        const sources = [
+            "Kas Paroki",
+            "Hasil Usaha Panitia",
+            "Sumbangan-Sumbangan",
+            "Stasi",
+            "Rukun",
+            "Pengembalian Sisa Dana Dari Seksi"
+        ];
+
+        let sourceTotals = {};
+        sources.forEach(s => sourceTotals[s] = 0);
+
+        txs.forEach(t => {
+            const norm = normalizeTx(t);
+            if (norm.isPenerimaanKasUtama && norm.sumberDana && sourceTotals.hasOwnProperty(norm.sumberDana)) {
+                sourceTotals[norm.sumberDana] += Number(t.amount);
+            }
+        });
+
+        let grandTotalPenerimaan = 0;
+        let rowsSumberDana = sources.map(s => {
+            let amt = sourceTotals[s];
+            grandTotalPenerimaan += amt;
+            return [s, `Rp ${amt.toLocaleString('id-ID')}`];
+        });
+
+        rowsSumberDana.push(['TOTAL PENERIMAAN', `Rp ${grandTotalPenerimaan.toLocaleString('id-ID')}`]);
+
+        doc.autoTable({
+            startY: currentY + 3,
+            head: [['Sumber Dana', 'Jumlah']],
+            body: rowsSumberDana,
+            theme: 'grid',
+            headStyles: { fillColor: [16, 185, 129] },
+            styles: { fontSize: 8 },
+            columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 12;
+
+        // --- PERUBAHAN 4: BUKU KAS UMUM (BKU) ---
+        if(currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text(`2. BUKU KAS UMUM (BKU) KAS UTAMA`, 14, currentY);
+        doc.setFont(undefined, 'normal');
+
+        let sldBku = 0;
+        let rowsBku = [];
+        txs.forEach(t => {
+            const norm = normalizeTx(t);
+            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
+
+            let m = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
+            let k = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
+            sldBku += (m - k);
+
+            let pihak = norm.pihakName || "Bendahara Panitia";
+            let desc = t.desc;
+            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') {
+                desc = `Bayar ke ${pihak}`;
+            }
+
+            rowsBku.push([
+                t.date || '-',
+                t.noNota || '-',
+                desc,
+                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
+                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
+                `Rp ${sldBku.toLocaleString('id-ID')}`
+            ]);
+        });
+
+        doc.autoTable({
+            startY: currentY + 3,
+            head: [['Tanggal', 'No. Bukti', 'Uraian Transaksi', 'Penerimaan', 'Pengeluaran', 'Saldo Kas Umum']],
+            body: rowsBku.length ? rowsBku : [['-', '-', 'Belum ada transaksi BKU Kas Utama', '-', '-', '-']],
+            theme: 'grid',
+            headStyles: { fillColor: [79, 70, 229] },
+            styles: { fontSize: 8 }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 12;
+
+        // --- URAIAN TRANSAKSI PER SEKSI ---
+        if(currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text(`3. REKAPITULASI & URAIAN TRANSAKSI PER SEKSI`, 14, currentY);
+        doc.setFont(undefined, 'normal');
+        currentY += 6;
+
+        if(seksis.length === 0) {
+            doc.setFontSize(9);
+            doc.text(`(Belum ada data Seksi untuk event ini)`, 14, currentY);
+            currentY += 10;
+        } else {
+            seksis.forEach(s => {
+                if(currentY > 230) { doc.addPage(); currentY = 20; }
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text(`Seksi: ${s.name} (PJ: ${s.pj || '-'}) | Pagu: Rp ${(Number(s.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
+                doc.setFont(undefined, 'normal');
+
+                let kasSeksi = 0;
+                let rowsSeksi = [];
+
+                txs.forEach(t => {
+                    const norm = normalizeTx(t);
+                    if (norm.pihakName === s.name || t.seksiId === s.id) {
+                        if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
+                            let m = norm.isTerimaSeksi ? Number(t.amount) : 0;
+                            let k = norm.isBelanjaSeksi ? Number(t.amount) : 0;
+                            kasSeksi += (m - k);
+
+                            let desc = t.desc;
+                            if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) {
+                                desc = "Terima Dana dari Bendahara Panitia";
+                            }
+
+                            rowsSeksi.push([
+                                t.date || '-',
+                                t.noNota || '-',
+                                desc,
+                                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
+                                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
+                                `Rp ${kasSeksi.toLocaleString('id-ID')}`
+                            ]);
+                        }
+                    }
+                });
+
+                doc.autoTable({
+                    startY: currentY + 3,
+                    head: [['Tanggal', 'No Nota', 'Uraian Transaksi', 'Terima Dana', 'Belanja', 'Sisa Kas']],
+                    body: rowsSeksi.length ? rowsSeksi : [['-', '-', 'Belum ada transaksi seksi', '-', '-', '-']],
+                    theme: 'grid',
+                    headStyles: { fillColor: [99, 102, 241] },
+                    styles: { fontSize: 8 }
+                });
+                currentY = doc.lastAutoTable.finalY + 8;
+            });
+        }
+
+        // --- INVENTARIS ASET ---
+        if(currentY > 220) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text(`4. LAPORAN INVENTARIS ASET KEPANITIAAN`, 14, currentY);
+        doc.setFont(undefined, 'normal');
+
+        let rowsAset = ast.map(a => {
+            const sObj = seksis.find(s => s.id === a.seksiId);
+            const sName = sObj ? sObj.name : 'Umum';
+            const qty = Number(a.qty) || 1;
+            const price = Number(a.price) || 0;
+            return [
+                a.name || '-',
+                sName,
+                qty.toString(),
+                `Rp ${price.toLocaleString('id-ID')}`,
+                `Rp ${(qty * price).toLocaleString('id-ID')}`
+            ];
+        });
+
+        doc.autoTable({
+            startY: currentY + 3,
+            head: [['Nama Barang Aset', 'Seksi Terkait', 'Jumlah Unit', 'Harga Satuan', 'Total Nilai']],
+            body: rowsAset.length ? rowsAset : [['-', '-', '-', '-', 'Belum ada data aset kepanitiaan']],
+            theme: 'grid',
+            headStyles: { fillColor: [16, 185, 129] },
+            styles: { fontSize: 8 }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 15;
+
+        // --- PERUBAHAN 7: KOLOM TANDA TANGAN (KETUA PANITIA, PASTOR PAROKI, BENDAHARA PANITIA) ---
+        if(currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text(tglMamasa, 140, currentY);
+        
+        currentY += 8;
+        doc.text("Ketua Panitia,", 20, currentY);
+        doc.text("Mengetahui,", 105, currentY, { align: 'center' });
+        doc.text("Pastor Paroki,", 105, currentY + 4, { align: 'center' });
+        doc.text("Bendahara Panitia,", 190, currentY, { align: 'right' });
+
+        currentY += 28;
+        doc.setFont(undefined, 'bold');
+        doc.text(ev.chair || "__________________", 20, currentY);
+        doc.text(ev.pastorParoki || "__________________", 105, currentY, { align: 'center' });
+        doc.text(ev.treasurer || "__________________", 190, currentY, { align: 'right' });
+
+        // --- LAMPIRAN BUKTI NOTA ---
+        const txWithPhotos = txs.filter(t => t.notaPhoto && (t.notaPhoto.base64 || t.notaPhoto.fileUrl));
+
+        if (txWithPhotos.length > 0) {
+            doc.addPage();
+            let attachY = 20;
+
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text(`LAMPIRAN BUKTI NOTA TRANSAKSI`, 14, attachY);
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Kepanitiaan: ${ev.name}`, 14, attachY + 5);
+            doc.line(14, attachY + 8, 196, attachY + 8);
+            
+            attachY += 15;
+
+            txWithPhotos.forEach((t) => {
+                const norm = normalizeTx(t);
+                const seksiName = norm.pihakName || 'Umum';
+
+                if (attachY + 95 > 280) {
+                    doc.addPage();
+                    attachY = 20;
+                }
+
+                doc.setFillColor(241, 245, 249);
+                doc.rect(14, attachY, 182, 13, 'F');
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'bold');
+                doc.text(`No. Nota: ${t.noNota || '-'} | Pihak Terkait: ${seksiName}`, 18, attachY + 5);
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Tanggal: ${t.date || '-'} | Nominal: Rp ${Number(t.amount).toLocaleString('id-ID')} | Uraian: ${t.desc || '-'}`, 18, attachY + 10);
+
+                attachY += 16;
+
+                try {
+                    const photoSrc = t.notaPhoto.base64 || t.notaPhoto.fileUrl;
+                    if (photoSrc) {
+                        let format = 'JPEG';
+                        if (photoSrc.includes('data:image/png') || photoSrc.toLowerCase().endsWith('.png')) format = 'PNG';
+
+                        const maxW = 140;
+                        const maxH = 75;
+                        const imgX = 18;
+                        
+                        doc.addImage(photoSrc, format, imgX, attachY, maxW, maxH);
+                        attachY += maxH + 12;
+                    }
+                } catch (errImg) {
+                    console.error("Gagal merender gambar nota ke PDF:", errImg);
+                    doc.setFontSize(8);
+                    doc.setTextColor(220, 38, 38);
+                    doc.text(`[Gagal menampilkan foto nota: ${t.notaPhoto.fileName || 'Nota'}]`, 18, attachY + 5);
+                    doc.setTextColor(0, 0, 0);
+                    attachY += 12;
+                }
+            });
+        }
+
+        doc.save(`LPJ_${ev.name.replace(/\s/g,'_')}.pdf`);
+        showNotification("Berhasil mengunduh Laporan PDF LPJ beserta Lampiran Nota!");
+    }
+</script>
+
+
