@@ -559,7 +559,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw0fjrkhFzf5_iT5HWmHNHW6R3lv5fI5sAHFICY56dNSAs9ifSq8Ao8QOHkkeMInSUn/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6E7tJMF-7uWJ1WVYn8JgPPjrlv0CmdJFwY3R5NL5eu8h84n9RNtVIUDodmnVF7q5H/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -1208,9 +1208,9 @@
         let type = uiType;
         let pihakTerkait = document.getElementById('txPihak').value;
         if (isSeksiLogin) {
-            // Seksi: penerimaan = dana dari Bendahara (dropping ke seksi), pengeluaran = belanja seksi
+            // Seksi: penerimaan = menambah kas seksi saja (kas Bendahara tidak berkurang), pengeluaran = belanja seksi
             pihakTerkait = akunNow;
-            type = 'pengeluaran';
+            type = (uiType === 'penerimaan') ? 'penerimaan' : 'pengeluaran';
         } else if (roleNow === 'panitia') {
             pihakTerkait = 'Bendahara Panitia';
         }
@@ -1219,7 +1219,7 @@
         
         const sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
         const pengeluaranCat = isSeksiLogin
-            ? (uiType === 'penerimaan' ? 'dropping' : 'belanja')
+            ? (uiType === 'penerimaan' ? '' : 'belanja')
             : ((type === 'pengeluaran' && pihakTerkait !== 'Bendahara Panitia') ? document.getElementById('txPengeluaranCat').value : '');
 
         if(!noNota || !desc || !amount) return alert("Lengkapi data transaksi dan nominal yang valid!");
@@ -1498,18 +1498,8 @@
                 }
             });
 
-            // ATURAN KHUSUS HASIL USAHA PANITIA (PERUBAHAN 2 & 10): Sisa Kas SUD berkurang sebesar nominal
-            let transferHasilUsaha = 0;
-            if (s.name === "Seksi Usaha Dana") {
-                txs.forEach(t => {
-                    const norm = normalizeTx(t);
-                    if (norm.isPenerimaanKasUtama && norm.sumberDana === 'Hasil Usaha Panitia') {
-                        transferHasilUsaha += Number(t.amount);
-                    }
-                });
-            }
-
-            let sisaKas = dTerima - dBelanja - transferHasilUsaha;
+            // Sisa Kas Seksi hanya berubah oleh dana yang diterima seksi dan belanja yang dicatat seksi sendiri
+            let sisaKas = dTerima - dBelanja;
             
             return `<tr class="hover:bg-slate-50 border-b border-slate-100">
                 <td class="py-2.5 px-4 font-semibold">${s.name}</td>
@@ -1886,22 +1876,29 @@
 
         currentY = doc.lastAutoTable.finalY + 15;
 
-        // --- PERUBAHAN 7: KOLOM TANDA TANGAN (KETUA PANITIA, PASTOR PAROKI, BENDAHARA PANITIA) ---
-        if(currentY > 230) { doc.addPage(); currentY = 20; }
+        // --- PERUBAHAN 7: KOLOM TANDA TANGAN (KETUA PANITIA, BENDAHARA PANITIA, DAN PASTOR PAROKI DI TENGAH BAWAH) ---
+        if(currentY > 190) { doc.addPage(); currentY = 20; }
         doc.setFontSize(9);
         doc.setFont(undefined, 'normal');
         doc.text(tglMamasa, 140, currentY);
         
         currentY += 8;
         doc.text("Ketua Panitia,", 20, currentY);
-        doc.text("Mengetahui, Pastor Paroki,", 105, currentY, { align: 'center' });
         doc.text("Bendahara Panitia,", 190, currentY, { align: 'right' });
 
         currentY += 28;
         doc.setFont(undefined, 'bold');
         doc.text(ev.chair || "__________________", 20, currentY);
-        doc.text(ev.pastorParoki || "__________________", 105, currentY, { align: 'center' });
         doc.text(ev.treasurer || "__________________", 190, currentY, { align: 'right' });
+
+        currentY += 12;
+        doc.setFont(undefined, 'normal');
+        doc.text("Mengetahui,", 105, currentY, { align: 'center' });
+        doc.text("Pastor Paroki,", 105, currentY + 4, { align: 'center' });
+
+        currentY += 32;
+        doc.setFont(undefined, 'bold');
+        doc.text(ev.pastorParoki || "__________________", 105, currentY, { align: 'center' });
 
         // --- LAMPIRAN BUKTI NOTA ---
         const txWithPhotos = txs.filter(t => t.notaPhoto && (t.notaPhoto.base64 || t.notaPhoto.fileUrl));
