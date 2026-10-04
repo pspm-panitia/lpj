@@ -559,7 +559,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzkyB5VQi_PObG-uzcEZ2OjEPDf8uWoR7SWrDOYX7L6yE9L3zy3orXkOsDLxvDYDJ2A/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7h4nfUxv2u1TmsftWUAgU4evrAPh-UwG_fheqmWqkt2MWBCCpuafbbg0ALM5on24D/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -1264,9 +1264,6 @@
 
                     const uploadResult = await uploadRes.json();
                     if (uploadResult && uploadResult.status === 'success') {
-                        if (uploadResult.folderFallback) {
-                            alert("Catatan: akun Google pemilik skrip tidak punya izin menulis di folder Drive tujuan, sehingga foto nota disimpan di My Drive pemilik skrip pada folder \"" + (uploadResult.folderName || appState.currentEvent) + "\". Beri akses Editor pada folder tujuan agar foto masuk ke folder yang diinginkan.");
-                        }
                         notaPhotoData = {
                             fileId: uploadResult.fileId,
                             fileName: uploadResult.fileName,
