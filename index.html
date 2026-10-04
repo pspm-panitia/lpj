@@ -559,7 +559,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6E7tJMF-7uWJ1WVYn8JgPPjrlv0CmdJFwY3R5NL5eu8h84n9RNtVIUDodmnVF7q5H/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzkyB5VQi_PObG-uzcEZ2OjEPDf8uWoR7SWrDOYX7L6yE9L3zy3orXkOsDLxvDYDJ2A/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -1120,11 +1120,18 @@
         } else {
             sumberDanaWrapper.classList.add('hidden');
             if (type === 'penerimaan') {
-                // Seksi menerima dana: Diterima dari otomatis Bendahara Panitia, uraian otomatis
-                pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
-                pihakSelect.disabled = true;
+                // Seksi menerima dana: Diterima dari Bendahara Panitia (uraian otomatis).
+                // Khusus Seksi Usaha Dana tersedia pilihan tambahan "Penerimaan Lainnya" (uraian diisi manual).
+                const prevPihak = pihakSelect.value;
+                if (akun === 'Seksi Usaha Dana') {
+                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option><option value="Penerimaan Lainnya">Penerimaan Lainnya</option>`;
+                    if (prevPihak === 'Penerimaan Lainnya') pihakSelect.value = 'Penerimaan Lainnya';
+                } else {
+                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
+                    pihakSelect.disabled = true;
+                }
                 pihakWrapper.classList.remove('hidden');
-                uraianOtomatis = true;
+                uraianOtomatis = (pihakSelect.value === 'Bendahara Panitia');
             } else {
                 // Seksi pengeluaran: langsung uraian, nominal, foto nota
                 pihakSelect.innerHTML = `<option value="${akun}">${akun}</option>`;
@@ -1257,6 +1264,9 @@
 
                     const uploadResult = await uploadRes.json();
                     if (uploadResult && uploadResult.status === 'success') {
+                        if (uploadResult.folderFallback) {
+                            alert("Catatan: akun Google pemilik skrip tidak punya izin menulis di folder Drive tujuan, sehingga foto nota disimpan di My Drive pemilik skrip pada folder \"" + (uploadResult.folderName || appState.currentEvent) + "\". Beri akses Editor pada folder tujuan agar foto masuk ke folder yang diinginkan.");
+                        }
                         notaPhotoData = {
                             fileId: uploadResult.fileId,
                             fileName: uploadResult.fileName,
