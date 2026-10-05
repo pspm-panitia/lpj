@@ -568,7 +568,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjZPvgLhcKWr58tGJaE5HReNcaEQYrVcq_hYZrgubSWs6u2SbHzAMf7BsmQaFGDW55/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4djMEfhtcvsesmZS0wnHnkf7YfBf7er3qHnDm-8iTcKE5ddEfHNCL3HTE3bn31fRY/exec";
     const PASSWORDS = { admin: "admin" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -1893,9 +1893,9 @@
             const c = classifyTx(t);
             const amt = Number(t.amount) || 0;
             if (norm.isSetorSeksi) {
-                // Setoran Seksi ke Bendahara Panitia (hasil usaha dana dihitung ke Hasil Usaha Panitia)
-                if (norm.isHasilUsahaSeksi) sourceTotals["Hasil Usaha Panitia"] += amt;
-                else sourceTotals[SRC_RETUR] += amt;
+                // Setoran sisa dana Seksi ke Bendahara Panitia
+                // (setoran hasil usaha dana tidak menambah rekapitulasi sumber dana)
+                if (!norm.isHasilUsahaSeksi) sourceTotals[SRC_RETUR] += amt;
             } else if (norm.isPenerimaanKasUtama) {
                 const src = normSumberDana(norm.sumberDana);
                 if (sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
