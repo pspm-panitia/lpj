@@ -465,11 +465,11 @@
             <div id="txSumberDanaWrapper" class="hidden">
                 <label class="block text-xs font-semibold text-slate-500 mb-1">Sumber Dana</label>
                 <select id="txSumberDana" class="w-full px-3 py-2 rounded-xl border text-sm font-medium bg-indigo-50 border-indigo-200">
-                    <option value="Kas Paroki">Kas Paroki</option>
+                    <option value="Kas Dana Ziarah">Kas Dana Ziarah</option>
                     <option value="Hasil Usaha Panitia">Hasil Usaha Panitia</option>
                     <option value="Sumbangan-Sumbangan">Sumbangan-Sumbangan</option>
-                    <option value="Stasi">Stasi</option>
-                    <option value="Rukun">Rukun</option>
+                    <option value="Kontribusi Stasi">Kontribusi Stasi</option>
+                    <option value="Kontribusi Rukun">Kontribusi Rukun</option>
                     <option value="Pengembalian Sisa Dana Dari Seksi">Pengembalian Sisa Dana Dari Seksi</option>
                 </select>
             </div>
@@ -1880,7 +1880,7 @@
             doc.setFontSize(9);
             doc.setFont(undefined, 'bold');
             if (g.isBendahara) {
-                doc.text(`Bendahara Panitia (PJ: ${g.pj || '-'})`, 14, currentY);
+                doc.text(`Buku Pembantu Kas Bendahara Panitia ( ${g.pj || '-'})`, 14, currentY);
             } else {
                 doc.text(`Seksi: ${g.name} (PJ: ${g.pj || '-'}) | Pagu: Rp ${(Number(g.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
             }
