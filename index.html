@@ -276,6 +276,10 @@
                         <span>Rekapitulasi & Detail Uraian Transaksi Seksi</span>
                     </h2>
                 </div>
+                <button onclick="openModalNewTransaction()" id="btnCatatTxSeksi" style="display:none" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Catat Transaksi Kas</span>
+                </button>
                 <button onclick="openModalNewSeksi()" class="admin-only bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-folder-plus"></i>
                     <span>Tambah Seksi Baru</span>
@@ -559,7 +563,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKCyz3yN8LQn27RMgV74gFg8Fj36jUCiPhLWneZ_Z0XNTQ-sO_Bq7FQqd95894OLTP/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxC2A1kmSV2lYWfUQWGZayEj6xTpVk0qaVcqnhV0mg8eUZb1y6apIOgzJpVKiXweci4/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -661,6 +665,20 @@
     // Rekap & Uraian : Bendahara Panitia diperlakukan sama seperti Seksi; perpindahan dana Bendahara <-> Seksi tercatat di sini.
     const DESC_TERIMA_BENDAHARA = "Terima Dana dari Bendahara Panitia";
 
+    // Deteksi uraian perpindahan dana Bendahara <-> Seksi (juga untuk data lama / uraian yang diketik manual)
+    function isUraianTransferKeSeksi(d) {
+        d = String(d || '').trim();
+        return /^(dropping|bayar ke|transfer ke|dana ke|serah(kan)? dana)/i.test(d) && /seksi/i.test(d);
+    }
+    function isUraianTransferDariSeksi(d) {
+        d = String(d || '').trim();
+        return /seksi/i.test(d) && /(pengembalian|kembali|sisa dana|setor)/i.test(d);
+    }
+    function isUraianTerimaDariBendahara(d) {
+        d = String(d || '').trim();
+        return !d || /^bayar ke/i.test(d) || /^terima dana/i.test(d) || /dari\s+bendahara/i.test(d);
+    }
+
     function classifyTx(t) {
         const norm = normalizeTx(t);
         const r = {
@@ -673,7 +691,7 @@
         if (norm.isPenerimaanKasUtama) {
             // Penerimaan Bendahara (pengembalian sisa dana dari seksi = perpindahan internal, tidak masuk BKU)
             r.benMasuk = true;
-            r.bkuMasuk = (norm.sumberDana !== 'Pengembalian Sisa Dana Dari Seksi');
+            r.bkuMasuk = (norm.sumberDana !== 'Pengembalian Sisa Dana Dari Seksi') && !isUraianTransferDariSeksi(t.desc);
         } else if (norm.isPengeluaranKasUtama && norm.isTerimaSeksi) {
             // Dropping Bendahara -> Seksi: hanya di Rekap (sisi Bendahara & sisi Seksi)
             r.benKeluar = true;
@@ -682,13 +700,11 @@
         } else if (norm.isPengeluaranKasUtama) {
             // Pengeluaran Bendahara langsung
             r.benKeluar = true;
-            r.bkuKeluar = true;
+            r.bkuKeluar = !isUraianTransferKeSeksi(t.desc);
         } else if (norm.isTerimaSeksi) {
             // Seksi menerima dana: dari Bendahara (tidak masuk BKU) atau Penerimaan Lainnya (masuk BKU)
             r.seksiTerima = true;
-            const d = (t.desc || '').trim();
-            const dariBendahara = (!d || d.startsWith('Bayar ke') || d === DESC_TERIMA_BENDAHARA);
-            r.bkuMasuk = !dariBendahara;
+            r.bkuMasuk = !isUraianTerimaDariBendahara(t.desc);
         } else if (norm.isBelanjaSeksi) {
             // Belanja seksi
             r.seksiBelanja = true;
@@ -953,9 +969,16 @@
         const seksiOnly = (role === 'panitia' && isSeksiLoginNow());
         const tabDash = document.getElementById('tab-dashboard');
         if (tabDash) tabDash.style.display = seksiOnly ? 'none' : '';
+        // Login Seksi: menu BKU juga disembunyikan, tombol Catat Transaksi Kas pindah ke menu Rekap & Uraian Per Seksi
+        const tabBku = document.getElementById('tab-bku');
+        if (tabBku) tabBku.style.display = seksiOnly ? 'none' : '';
+        const btnTxSeksi = document.getElementById('btnCatatTxSeksi');
+        if (btnTxSeksi) btnTxSeksi.style.display = seksiOnly ? '' : 'none';
         if (seksiOnly) {
-            const dashContent = document.getElementById('content-dashboard');
-            if (dashContent && !dashContent.classList.contains('hidden')) switchTab('bku');
+            ['content-dashboard', 'content-bku'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.classList.contains('hidden')) switchTab('seksi');
+            });
         }
     }
 
