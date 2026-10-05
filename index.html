@@ -73,7 +73,7 @@
         </button>
         <button onclick="switchTab('seksi')" id="tab-seksi" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
             <i class="fa-solid fa-layer-group"></i>
-            <span>Rekap & Uraian Per Seksi</span>
+            <span>Rekap & Uraian Transaksi</span>
         </button>
         <button onclick="switchTab('aset')" id="tab-aset" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
             <i class="fa-solid fa-boxes-stacked"></i>
@@ -183,7 +183,7 @@
                     <i class="fa-solid fa-key text-indigo-600"></i>
                     <span>Password Akses Bendahara & Seksi</span>
                 </h2>
-                <p class="text-xs text-slate-500 mt-1">Buat password 4 digit angka untuk Bendahara Panitia dan setiap Seksi pada event aktif. Password dipakai saat login sebagai Panitia Pelaksana / Seksi.</p>
+                <p class="text-xs text-slate-500 mt-1">Buat password 4 digit angka untuk Bendahara Panitia dan setiap Seksi pada event aktif. Password dipakai saat login sebagai Panitia</p>
             </div>
             <div class="p-6">
                 <div class="overflow-x-auto">
@@ -366,7 +366,7 @@
                 <label class="block text-xs font-semibold text-slate-500 mb-1">Peran Akses</label>
                 <select id="loginRole" onchange="toggleLoginAkun()" class="w-full px-3 py-2 rounded-xl border text-sm">
                     <option value="admin">Super Admin (Pusat)</option>
-                    <option value="panitia">Panitia Pelaksana / Seksi</option>
+                    <option value="panitia">Panitia</option>
                 </select>
             </div>
             <div id="loginAkunWrapper" class="hidden">
@@ -1778,13 +1778,13 @@
         await hydrateNotaImages(txs);
 
         // KOP JUDUL LPJ
-        doc.setFontSize(14); 
+        doc.setFontSize(12); 
         doc.setFont(undefined, 'bold');
-        doc.text(`KEPANITIAAN ${ev.name.toUpperCase()}`, 14, 15);
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.text(`LAPORAN PERTANGGUNGJAWABAN (LPJ) KEUANGAN TERPADU`, 14, 21);
-        doc.text(`Ketua: ${ev.chair || '-'}  |  Pastor Paroki: ${ev.pastorParoki || '-'}  |  Bendahara: ${ev.treasurer || '-'}`, 14, 26);
+        doc.text(`LAPORAN PERTANGGUNGJAWABAN ${ev.name.toUpperCase()}`, 14, 15);
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(`PAROKI ST. PETRUS MAMASA`, 14, 21);
+        doc.text(`Ketua : ${ev.chair || '-'}  |  Pastor Paroki : ${ev.pastorParoki || '-'}  |  Bendahara : ${ev.treasurer || '-'}`, 14, 26);
         doc.line(14, 28, 196, 28);
 
         let currentY = 35;
@@ -1871,7 +1871,7 @@
         if(currentY > 230) { doc.addPage(); currentY = 20; }
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
-        doc.text(`3. REKAPITULASI & URAIAN TRANSAKSI PER SEKSI`, 14, currentY);
+        doc.text(`3. REKAPITULASI & URAIAN TRANSAKSI`, 14, currentY);
         doc.setFont(undefined, 'normal');
         currentY += 6;
 
