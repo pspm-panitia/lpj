@@ -568,7 +568,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRVmz5zE2DIN1Ol0R0hej5jmnA9VkpsZogtQQVIi7ew3sYBhZ187NfMNlXl5TqdVdP/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjZPvgLhcKWr58tGJaE5HReNcaEQYrVcq_hYZrgubSWs6u2SbHzAMf7BsmQaFGDW55/exec";
     const PASSWORDS = { admin: "admin" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -660,8 +660,9 @@
                 } else if (cat === 'setor') {
                     isSetorSeksi = true;
                 } else if (cat === 'hasil_usaha') {
-                    // Pengeluaran dari hasil usaha dana: belanja seksi, tidak masuk BKU
-                    isBelanjaSeksi = true;
+                    // Pengeluaran hasil usaha dana: diperlakukan sama seperti setor sisa dana
+                    // (tercatat di Rekap Buku Pembantu Kas Bendahara Panitia, tidak masuk BKU)
+                    isSetorSeksi = true;
                     isHasilUsahaSeksi = true;
                 } else {
                     isBelanjaSeksi = true;
@@ -714,7 +715,9 @@
             // Seksi menyetor sisa dana ke Bendahara Panitia: perpindahan internal, TIDAK masuk BKU.
             // Sisi Seksi = pengeluaran (kas seksi berkurang), sisi Bendahara = penerimaan.
             r.benMasuk = true;
-            r.benDesc = `Terima Setoran Sisa Dana ${norm.pihakName}`;
+            r.benDesc = norm.isHasilUsahaSeksi
+                ? `Terima Setoran Hasil Usaha Dana ${norm.pihakName}`
+                : `Terima Setoran Sisa Dana ${norm.pihakName}`;
             r.seksiBelanja = true;
         } else if (norm.isPenerimaanKasUtama) {
             // Penerimaan Bendahara (pengembalian sisa dana dari seksi = perpindahan internal, tidak masuk BKU)
@@ -1890,8 +1893,9 @@
             const c = classifyTx(t);
             const amt = Number(t.amount) || 0;
             if (norm.isSetorSeksi) {
-                // Setoran sisa dana Seksi ke Bendahara Panitia
-                sourceTotals[SRC_RETUR] += amt;
+                // Setoran Seksi ke Bendahara Panitia (hasil usaha dana dihitung ke Hasil Usaha Panitia)
+                if (norm.isHasilUsahaSeksi) sourceTotals["Hasil Usaha Panitia"] += amt;
+                else sourceTotals[SRC_RETUR] += amt;
             } else if (norm.isPenerimaanKasUtama) {
                 const src = normSumberDana(norm.sumberDana);
                 if (sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
