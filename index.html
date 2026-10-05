@@ -459,6 +459,7 @@
                     <option value="dropping">Dropping Dana ke Seksi (Kas Utama -> Seksi)</option>
                     <option value="belanja">Belanja / Pengeluaran Seksi Direct</option>
                     <option value="setor">Setor Sisa Dana ke Bendahara Panitia (Seksi -> Kas Utama)</option>
+                    <option value="hasil_usaha">Pengeluaran Hasil Usaha Dana (tidak masuk BKU)</option>
                 </select>
             </div>
 
@@ -567,8 +568,8 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzh0cxGHHEMBvfeJq2j3opatAoYFOopSTPOWuVfXKGDTKp8aVhg_AZia7-c5C0cLk8T/exec";
-    const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRVmz5zE2DIN1Ol0R0hej5jmnA9VkpsZogtQQVIi7ew3sYBhZ187NfMNlXl5TqdVdP/exec";
+    const PASSWORDS = { admin: "admin" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
         currentEvent: "", chairperson: "", treasurer: "", pastorParoki: "", driveFolder: "",
@@ -632,6 +633,7 @@
         let isTerimaSeksi = false;
         let isBelanjaSeksi = false;
         let isSetorSeksi = false;
+        let isHasilUsahaSeksi = false;
 
         if (type === 'pemasukan_umum') {
             isPenerimaanKasUtama = true;
@@ -657,6 +659,10 @@
                     isTerimaSeksi = true;
                 } else if (cat === 'setor') {
                     isSetorSeksi = true;
+                } else if (cat === 'hasil_usaha') {
+                    // Pengeluaran dari hasil usaha dana: belanja seksi, tidak masuk BKU
+                    isBelanjaSeksi = true;
+                    isHasilUsahaSeksi = true;
                 } else {
                     isBelanjaSeksi = true;
                 }
@@ -669,6 +675,7 @@
             isTerimaSeksi,
             isBelanjaSeksi,
             isSetorSeksi,
+            isHasilUsahaSeksi,
             pihakName,
             sumberDana
         };
@@ -725,11 +732,11 @@
         } else if (norm.isTerimaSeksi) {
             // Seksi menerima dana: dari Bendahara (tidak masuk BKU) atau Penerimaan Lainnya (masuk BKU)
             r.seksiTerima = true;
-            r.bkuMasuk = !isUraianTerimaDariBendahara(t.desc);
+            r.bkuMasuk = (norm.sumberDana === 'Hasil Usaha Panitia') || !isUraianTerimaDariBendahara(t.desc);
         } else if (norm.isBelanjaSeksi) {
             // Belanja seksi
             r.seksiBelanja = true;
-            r.bkuKeluar = true;
+            r.bkuKeluar = !norm.isHasilUsahaSeksi;
         }
         return r;
     }
@@ -1290,8 +1297,8 @@
                 // Khusus Seksi Usaha Dana tersedia pilihan tambahan "Penerimaan Lainnya" (uraian diisi manual).
                 const prevPihak = pihakSelect.value;
                 if (akun === 'Seksi Usaha Dana') {
-                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option><option value="Penerimaan Lainnya">Penerimaan Lainnya</option>`;
-                    if (prevPihak === 'Penerimaan Lainnya') pihakSelect.value = 'Penerimaan Lainnya';
+                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option><option value="Hasil Usaha Panitia">Hasil Usaha Panitia</option><option value="Penerimaan Lainnya">Penerimaan Lainnya</option>`;
+                    if (prevPihak === 'Penerimaan Lainnya' || prevPihak === 'Hasil Usaha Panitia') pihakSelect.value = prevPihak;
                 } else {
                     pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
                     pihakSelect.disabled = true;
@@ -1305,8 +1312,10 @@
                 seksiKeluar = true;
                 const selUr = document.getElementById('txUraianSeksi');
                 const prevUr = selUr.value;
-                selUr.innerHTML = `<option value="setor">Setor ke Bendahara Panitia Sisa Dana ${akun}</option><option value="lain">Pengeluaran Lainnya</option>`;
-                if (prevUr === 'lain') selUr.value = 'lain';
+                selUr.innerHTML = `<option value="setor">Setor ke Bendahara Panitia Sisa Dana ${akun}</option>`
+                    + (akun === 'Seksi Usaha Dana' ? `<option value="hasil_usaha">Hasil Usaha Dana</option>` : '')
+                    + `<option value="lain">Pengeluaran Lainnya</option>`;
+                if (prevUr && Array.from(selUr.options).some(o => o.value === prevUr)) selUr.value = prevUr;
                 document.getElementById('txUraianSeksiWrapper').classList.remove('hidden');
             }
         }
@@ -1341,7 +1350,7 @@
             if (descInput.readOnly) descInput.value = '';
             descInput.readOnly = false;
             descInput.classList.remove('hidden', 'bg-slate-100');
-            descInput.placeholder = 'Tulis uraian pengeluaran...';
+            descInput.placeholder = (val === 'hasil_usaha') ? 'Tulis uraian pengeluaran hasil usaha dana...' : 'Tulis uraian pengeluaran...';
         }
     }
 
@@ -1405,6 +1414,7 @@
         const isSeksiLogin = (roleNow === 'panitia' && akunNow && akunNow !== 'Bendahara Panitia');
         let type = uiType;
         let pihakTerkait = document.getElementById('txPihak').value;
+        const pihakPilihan = pihakTerkait;
         if (isSeksiLogin) {
             // Seksi: penerimaan = menambah kas seksi saja (kas Bendahara tidak berkurang), pengeluaran = belanja seksi
             pihakTerkait = akunNow;
@@ -1415,9 +1425,11 @@
         const desc = document.getElementById('txDesc').value.trim();
         const amount = cleanNumber(document.getElementById('txAmount').value);
         
-        const sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
+        let sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
+        if (isSeksiLogin && uiType === 'penerimaan' && pihakPilihan === 'Hasil Usaha Panitia') sumberDana = 'Hasil Usaha Panitia';
+        const uraianSeksiPilih = isSeksiLogin ? document.getElementById('txUraianSeksi').value : '';
         const pengeluaranCat = isSeksiLogin
-            ? (uiType === 'penerimaan' ? '' : (document.getElementById('txUraianSeksi').value === 'setor' ? 'setor' : 'belanja'))
+            ? (uiType === 'penerimaan' ? '' : (uraianSeksiPilih === 'setor' ? 'setor' : (uraianSeksiPilih === 'hasil_usaha' ? 'hasil_usaha' : 'belanja')))
             : ((type === 'pengeluaran' && pihakTerkait !== 'Bendahara Panitia') ? document.getElementById('txPengeluaranCat').value : '');
 
         if(!noNota || !desc || !amount) return alert("Lengkapi data transaksi dan nominal yang valid!");
@@ -1429,6 +1441,8 @@
         }
 
         let existingTx = editingTxId ? appState.transactions.find(t => t.id === editingTxId) : null;
+        // Edit oleh admin: pertahankan sumber dana transaksi seksi (mis. Hasil Usaha Panitia)
+        if (!sumberDana && existingTx && existingTx.sumberDana && pihakTerkait !== 'Bendahara Panitia') sumberDana = existingTx.sumberDana;
         let notaPhotoData = existingTx ? existingTx.notaPhoto : null;
 
         // Jika ada foto nota baru yang dipilih
@@ -1883,7 +1897,10 @@
                 if (sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
                 else sourceTotals[SRC_LAIN] += amt;   // tanpa sumber dana / data lama
             } else if (c.bkuMasuk) {
-                sourceTotals[SRC_LAIN] += amt;        // mis. Penerimaan Lainnya oleh Seksi
+                // Penerimaan oleh Seksi yang masuk BKU: Hasil Usaha Panitia, atau Penerimaan Lainnya
+                const src = normSumberDana(norm.sumberDana);
+                if (src && src !== SRC_RETUR && sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
+                else sourceTotals[SRC_LAIN] += amt;
             }
         });
 
