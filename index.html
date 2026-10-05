@@ -559,7 +559,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7h4nfUxv2u1TmsftWUAgU4evrAPh-UwG_fheqmWqkt2MWBCCpuafbbg0ALM5on24D/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKCyz3yN8LQn27RMgV74gFg8Fj36jUCiPhLWneZ_Z0XNTQ-sO_Bq7FQqd95894OLTP/exec";
     const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -653,6 +653,105 @@
             pihakName,
             sumberDana
         };
+    }
+
+    // --- KLASIFIKASI ALIRAN TRANSAKSI ---
+    // BKU Kas Utama  : semua penerimaan & pengeluaran Bendahara dan Seksi,
+    //                  KECUALI perpindahan dana Bendahara <-> Seksi (dropping / terima dana / pengembalian sisa dana).
+    // Rekap & Uraian : Bendahara Panitia diperlakukan sama seperti Seksi; perpindahan dana Bendahara <-> Seksi tercatat di sini.
+    const DESC_TERIMA_BENDAHARA = "Terima Dana dari Bendahara Panitia";
+
+    function classifyTx(t) {
+        const norm = normalizeTx(t);
+        const r = {
+            norm,
+            bkuMasuk: false, bkuKeluar: false,
+            benMasuk: false, benKeluar: false,
+            seksiTerima: false, seksiBelanja: false,
+            benDesc: t.desc
+        };
+        if (norm.isPenerimaanKasUtama) {
+            // Penerimaan Bendahara (pengembalian sisa dana dari seksi = perpindahan internal, tidak masuk BKU)
+            r.benMasuk = true;
+            r.bkuMasuk = (norm.sumberDana !== 'Pengembalian Sisa Dana Dari Seksi');
+        } else if (norm.isPengeluaranKasUtama && norm.isTerimaSeksi) {
+            // Dropping Bendahara -> Seksi: hanya di Rekap (sisi Bendahara & sisi Seksi)
+            r.benKeluar = true;
+            r.benDesc = `Bayar ke ${norm.pihakName}`;
+            r.seksiTerima = true;
+        } else if (norm.isPengeluaranKasUtama) {
+            // Pengeluaran Bendahara langsung
+            r.benKeluar = true;
+            r.bkuKeluar = true;
+        } else if (norm.isTerimaSeksi) {
+            // Seksi menerima dana: dari Bendahara (tidak masuk BKU) atau Penerimaan Lainnya (masuk BKU)
+            r.seksiTerima = true;
+            const d = (t.desc || '').trim();
+            const dariBendahara = (!d || d.startsWith('Bayar ke') || d === DESC_TERIMA_BENDAHARA);
+            r.bkuMasuk = !dariBendahara;
+        } else if (norm.isBelanjaSeksi) {
+            // Belanja seksi
+            r.seksiBelanja = true;
+            r.bkuKeluar = true;
+        }
+        return r;
+    }
+
+    function getBkuRows(txs) {
+        const rows = [];
+        txs.forEach(t => {
+            const c = classifyTx(t);
+            if (!c.bkuMasuk && !c.bkuKeluar) return;
+            rows.push({
+                t,
+                pihak: c.norm.pihakName || "Bendahara Panitia",
+                desc: t.desc,
+                masuk: c.bkuMasuk ? Number(t.amount) : 0,
+                keluar: c.bkuKeluar ? Number(t.amount) : 0
+            });
+        });
+        return rows;
+    }
+
+    function getRekapDetailRows(txs) {
+        const rows = [];
+        txs.forEach(t => {
+            const c = classifyTx(t);
+            const amt = Number(t.amount);
+            if (c.benMasuk || c.benKeluar) {
+                rows.push({ side: 'ben', t, pihak: 'Bendahara Panitia', desc: c.benDesc, msk: c.benMasuk ? amt : 0, klr: c.benKeluar ? amt : 0 });
+            }
+            if (c.seksiTerima || c.seksiBelanja) {
+                let desc = t.desc;
+                if (c.seksiTerima && (!desc || desc.startsWith('Bayar ke'))) desc = DESC_TERIMA_BENDAHARA;
+                rows.push({ side: 'seksi', t, pihak: c.norm.pihakName || 'Umum', desc, msk: c.seksiTerima ? amt : 0, klr: c.seksiBelanja ? amt : 0 });
+            }
+        });
+        return rows;
+    }
+
+    function buildRekapGroups(txs, seksis, ev, onlySeksiName) {
+        const rows = getRekapDetailRows(txs);
+        const groups = [];
+        if (!onlySeksiName) {
+            groups.push({ isBendahara: true, name: 'Bendahara Panitia', pj: (ev && ev.treasurer) || '-', pagu: null, seksi: null,
+                rows: rows.filter(r => r.side === 'ben') });
+        }
+        seksis.filter(s => !onlySeksiName || s.name === onlySeksiName).forEach(s => {
+            groups.push({ isBendahara: false, name: s.name, pj: s.pj, pagu: s.pagu, seksi: s,
+                rows: rows.filter(r => r.side === 'seksi' && (r.pihak === s.name || r.t.seksiId === s.id)) });
+        });
+        groups.forEach(g => {
+            let saldo = 0, tm = 0, tk = 0;
+            g.rows.forEach(r => { tm += r.msk; tk += r.klr; saldo += (r.msk - r.klr); r.saldo = saldo; });
+            g.totalMasuk = tm; g.totalKeluar = tk; g.sisa = saldo;
+        });
+        return groups;
+    }
+
+    function isSeksiLoginNow() {
+        const akun = sessionStorage.getItem('userAkun') || '';
+        return sessionStorage.getItem('userRole') === 'panitia' && !!akun && akun !== 'Bendahara Panitia';
     }
 
     // --- HELPER KODE PIHAK UNTUK NO BUKTI OTOMATIS ---
@@ -850,6 +949,14 @@
     function applyRoleAccess(role) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = role === 'admin' ? '' : 'none');
         document.getElementById('activeUserRoleDisplay').innerText = role === 'admin' ? 'Super Admin' : (sessionStorage.getItem('userAkun') || 'Panitia Pelaksana');
+        // Login sebagai Seksi: menu Dashboard Event disembunyikan
+        const seksiOnly = (role === 'panitia' && isSeksiLoginNow());
+        const tabDash = document.getElementById('tab-dashboard');
+        if (tabDash) tabDash.style.display = seksiOnly ? 'none' : '';
+        if (seksiOnly) {
+            const dashContent = document.getElementById('content-dashboard');
+            if (dashContent && !dashContent.classList.contains('hidden')) switchTab('bku');
+        }
     }
 
     function triggerLogout() { sessionStorage.clear(); location.reload(); }
@@ -1411,8 +1518,9 @@
 
         activeTx.forEach(t => {
             const norm = normalizeTx(t);
-            if (norm.isPenerimaanKasUtama) totalPemasukanKasUtama += Number(t.amount);
-            if (norm.isPengeluaranKasUtama) totalPengeluaranKasUtama += Number(t.amount);
+            const cf = classifyTx(t);
+            if (cf.bkuMasuk) totalPemasukanKasUtama += Number(t.amount);
+            if (cf.bkuKeluar) totalPengeluaranKasUtama += Number(t.amount);
             if (norm.isBelanjaSeksi) totalRealisasiBelanja += Number(t.amount);
         });
 
@@ -1445,20 +1553,15 @@
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
         document.getElementById('bkuTableBody').innerHTML = txs.map(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return '';
+            const c = classifyTx(t);
+            if (!c.bkuMasuk && !c.bkuKeluar) return '';
 
-            let masuk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let keluar = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
+            let masuk = c.bkuMasuk ? Number(t.amount) : 0;
+            let keluar = c.bkuKeluar ? Number(t.amount) : 0;
             saldo += (masuk - keluar);
-            
-            let pihakDisplay = norm.pihakName || "Bendahara Panitia";
-            
-            // PERUBAHAN 4: URAIAN OTOMATIS BAYAR KE SEKSI
+
+            let pihakDisplay = c.norm.pihakName || "Bendahara Panitia";
             let displayDesc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihakDisplay !== 'Bendahara Panitia') {
-                displayDesc = `Bayar ke ${pihakDisplay}`;
-            }
 
             let notaLink = '-';
             if (t.notaPhoto) {
@@ -1493,48 +1596,28 @@
         const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
-        document.getElementById('seksiTableBody').innerHTML = seksis.map(s => {
-            let dTerima = 0;
-            let dBelanja = 0;
+        const onlySeksi = isSeksiLoginNow() ? (sessionStorage.getItem('userAkun') || '') : '';
+        const groups = buildRekapGroups(txs, seksis, { treasurer: appState.treasurer }, onlySeksi);
 
-            txs.forEach(t => {
-                const norm = normalizeTx(t);
-                if (norm.pihakName === s.name || t.seksiId === s.id) {
-                    if (norm.isTerimaSeksi) dTerima += Number(t.amount);
-                    if (norm.isBelanjaSeksi) dBelanja += Number(t.amount);
-                }
-            });
-
-            // Sisa Kas Seksi hanya berubah oleh dana yang diterima seksi dan belanja yang dicatat seksi sendiri
-            let sisaKas = dTerima - dBelanja;
-            
+        document.getElementById('seksiTableBody').innerHTML = groups.map(g => {
+            const aksi = g.isBendahara
+                ? `<td class="py-2.5 px-4 text-center admin-only"></td>`
+                : `<td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.seksi=appState.seksi.filter(x=>x.id!==${g.seksi.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>`;
             return `<tr class="hover:bg-slate-50 border-b border-slate-100">
-                <td class="py-2.5 px-4 font-semibold">${s.name}</td>
-                <td class="py-2.5 px-4">${s.pj || '-'}</td>
-                <td class="py-2.5 px-4 text-right">Rp ${Number(s.pagu||0).toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-emerald-600 font-bold">Rp ${dTerima.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-rose-600 font-bold">Rp ${dBelanja.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-indigo-600 font-bold">Rp ${sisaKas.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.seksi=appState.seksi.filter(x=>x.id!==${s.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>
+                <td class="py-2.5 px-4 font-semibold">${g.name}</td>
+                <td class="py-2.5 px-4">${g.pj || '-'}</td>
+                <td class="py-2.5 px-4 text-right">${g.isBendahara ? '-' : 'Rp ' + Number(g.pagu||0).toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-emerald-600 font-bold">Rp ${g.totalMasuk.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-rose-600 font-bold">Rp ${g.totalKeluar.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-indigo-600 font-bold">Rp ${g.sisa.toLocaleString('id-ID')}</td>
+                ${aksi}
             </tr>`;
         }).join('') || `<tr><td colspan="7" class="py-4 text-center text-slate-400">Belum ada seksi.</td></tr>`;
 
-        const detailTxs = txs.filter(t => {
-            const norm = normalizeTx(t);
-            return norm.isTerimaSeksi || norm.isBelanjaSeksi;
-        });
+        const detailRows = getRekapDetailRows(txs).filter(r => !onlySeksi || (r.side === 'seksi' && r.pihak === onlySeksi));
 
-        document.getElementById('seksiDetailTableBody').innerHTML = detailTxs.map(t => {
-            const norm = normalizeTx(t);
-            const sName = norm.pihakName || 'Umum';
-            const msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
-            const klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-
-            let displaySeksiDesc = t.desc;
-            if (norm.isTerimaSeksi && (!displaySeksiDesc || displaySeksiDesc.startsWith('Bayar ke'))) {
-                displaySeksiDesc = "Terima Dana dari Bendahara Panitia";
-            }
-
+        document.getElementById('seksiDetailTableBody').innerHTML = detailRows.map(r => {
+            const t = r.t;
             let notaLink = '-';
             if (t.notaPhoto) {
                 const targetUrl = t.notaPhoto.fileUrl || t.notaPhoto.base64;
@@ -1544,13 +1627,13 @@
             }
 
             return `<tr class="hover:bg-slate-50 border-b border-slate-100">
-                <td class="py-2 px-4 font-medium text-xs">${sName}</td>
+                <td class="py-2 px-4 font-medium text-xs">${r.pihak}</td>
                 <td class="py-2 px-4 text-xs">${t.date || '-'}</td>
                 <td class="py-2 px-4 font-mono text-xs">${t.noNota || '-'}</td>
-                <td class="py-2 px-4 text-xs">${displaySeksiDesc}</td>
+                <td class="py-2 px-4 text-xs">${r.desc}</td>
                 <td class="py-2 px-4 text-center">${notaLink}</td>
-                <td class="py-2 px-4 text-right text-emerald-600 font-medium text-xs">${msk ? 'Rp '+msk.toLocaleString('id-ID') : '-'}</td>
-                <td class="py-2 px-4 text-right text-rose-600 font-medium text-xs">${klr ? 'Rp '+klr.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-right text-emerald-600 font-medium text-xs">${r.msk ? 'Rp '+r.msk.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-right text-rose-600 font-medium text-xs">${r.klr ? 'Rp '+r.klr.toLocaleString('id-ID') : '-'}</td>
                 <td class="py-2 px-4 text-center admin-only">
                     <div class="inline-flex space-x-1">
                         <button onclick="openEditTransactionModal(${t.id})" title="Edit" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -1602,19 +1685,9 @@
             ["Tanggal", "No. Bukti", "Pihak Terkait", "Uraian Transaksi", "Penerimaan (Rp)", "Pengeluaran (Rp)", "Saldo Kas Umum (Rp)"]
         ];
         let sldBku = 0;
-        txs.forEach(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
-            
-            let msk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let klr = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
-            sldBku += (msk - klr);
-
-            let pihak = norm.pihakName || "Bendahara Panitia";
-            let desc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') desc = `Bayar ke ${pihak}`;
-
-            aoaBku.push([t.date || '-', t.noNota || '-', pihak, desc, msk, klr, sldBku]);
+        getBkuRows(txs).forEach(r => {
+            sldBku += (r.masuk - r.keluar);
+            aoaBku.push([r.t.date || '-', r.t.noNota || '-', r.pihak, r.desc, r.masuk, r.keluar, sldBku]);
         });
         aoaBku.push([], [], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaBku), "Buku Kas Umum");
@@ -1625,24 +1698,16 @@
             [`LAPORAN REKAPITULASI DAN URAIAN TRANSAKSI PER SEKSI`],
             []
         ];
-        seksis.forEach(s => {
-            aoaSeksi.push([`Seksi: ${s.name}`, `PJ: ${s.pj || '-'}`, `Pagu Anggaran: Rp ${s.pagu || 0}`]);
-            aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Terima Dana", "Belanja", "Sisa Kas Seksi"]);
-            
-            let kasSeksi = 0;
-            txs.forEach(t => {
-                const norm = normalizeTx(t);
-                if (norm.pihakName === s.name || t.seksiId === s.id) {
-                    if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
-                        let msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
-                        let klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-                        kasSeksi += (msk - klr);
-                        
-                        let desc = t.desc;
-                        if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) desc = "Terima Dana dari Bendahara Panitia";
-                        aoaSeksi.push([t.date || '-', t.noNota || '-', desc, msk, klr, kasSeksi]);
-                    }
-                }
+        buildRekapGroups(txs, seksis, ev).forEach(g => {
+            if (g.isBendahara) {
+                aoaSeksi.push([`Bendahara Panitia`, `PJ: ${g.pj || '-'}`]);
+                aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Penerimaan", "Pengeluaran", "Sisa Kas Bendahara"]);
+            } else {
+                aoaSeksi.push([`Seksi: ${g.name}`, `PJ: ${g.pj || '-'}`, `Pagu Anggaran: Rp ${g.pagu || 0}`]);
+                aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Terima Dana", "Belanja", "Sisa Kas Seksi"]);
+            }
+            g.rows.forEach(r => {
+                aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.klr, r.saldo]);
             });
             aoaSeksi.push([]); 
         });
@@ -1756,26 +1821,14 @@
 
         let sldBku = 0;
         let rowsBku = [];
-        txs.forEach(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
-
-            let m = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let k = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
-            sldBku += (m - k);
-
-            let pihak = norm.pihakName || "Bendahara Panitia";
-            let desc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') {
-                desc = `Bayar ke ${pihak}`;
-            }
-
+        getBkuRows(txs).forEach(r => {
+            sldBku += (r.masuk - r.keluar);
             rowsBku.push([
-                t.date || '-',
-                t.noNota || '-',
-                desc,
-                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
-                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
+                r.t.date || '-',
+                r.t.noNota || '-',
+                r.desc,
+                r.masuk ? `Rp ${r.masuk.toLocaleString('id-ID')}` : '-',
+                r.keluar ? `Rp ${r.keluar.toLocaleString('id-ID')}` : '-',
                 `Rp ${sldBku.toLocaleString('id-ID')}`
             ]);
         });
@@ -1799,57 +1852,38 @@
         doc.setFont(undefined, 'normal');
         currentY += 6;
 
-        if(seksis.length === 0) {
+        buildRekapGroups(txs, seksis, ev).forEach(g => {
+            if(currentY > 230) { doc.addPage(); currentY = 20; }
             doc.setFontSize(9);
-            doc.text(`(Belum ada data Seksi untuk event ini)`, 14, currentY);
-            currentY += 10;
-        } else {
-            seksis.forEach(s => {
-                if(currentY > 230) { doc.addPage(); currentY = 20; }
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text(`Seksi: ${s.name} (PJ: ${s.pj || '-'}) | Pagu: Rp ${(Number(s.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
-                doc.setFont(undefined, 'normal');
+            doc.setFont(undefined, 'bold');
+            if (g.isBendahara) {
+                doc.text(`Bendahara Panitia (PJ: ${g.pj || '-'})`, 14, currentY);
+            } else {
+                doc.text(`Seksi: ${g.name} (PJ: ${g.pj || '-'}) | Pagu: Rp ${(Number(g.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
+            }
+            doc.setFont(undefined, 'normal');
 
-                let kasSeksi = 0;
-                let rowsSeksi = [];
+            const rowsSeksi = g.rows.map(r => [
+                r.t.date || '-',
+                r.t.noNota || '-',
+                r.desc,
+                r.msk ? `Rp ${r.msk.toLocaleString('id-ID')}` : '-',
+                r.klr ? `Rp ${r.klr.toLocaleString('id-ID')}` : '-',
+                `Rp ${r.saldo.toLocaleString('id-ID')}`
+            ]);
 
-                txs.forEach(t => {
-                    const norm = normalizeTx(t);
-                    if (norm.pihakName === s.name || t.seksiId === s.id) {
-                        if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
-                            let m = norm.isTerimaSeksi ? Number(t.amount) : 0;
-                            let k = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-                            kasSeksi += (m - k);
-
-                            let desc = t.desc;
-                            if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) {
-                                desc = "Terima Dana dari Bendahara Panitia";
-                            }
-
-                            rowsSeksi.push([
-                                t.date || '-',
-                                t.noNota || '-',
-                                desc,
-                                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
-                                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
-                                `Rp ${kasSeksi.toLocaleString('id-ID')}`
-                            ]);
-                        }
-                    }
-                });
-
-                doc.autoTable({
-                    startY: currentY + 3,
-                    head: [['Tanggal', 'No Nota', 'Uraian Transaksi', 'Terima Dana', 'Belanja', 'Sisa Kas']],
-                    body: rowsSeksi.length ? rowsSeksi : [['-', '-', 'Belum ada transaksi seksi', '-', '-', '-']],
-                    theme: 'grid',
-                    headStyles: { fillColor: [99, 102, 241] },
-                    styles: { fontSize: 8 }
-                });
-                currentY = doc.lastAutoTable.finalY + 8;
+            doc.autoTable({
+                startY: currentY + 3,
+                head: [g.isBendahara
+                    ? ['Tanggal', 'No Nota', 'Uraian Transaksi', 'Penerimaan', 'Pengeluaran', 'Sisa Kas']
+                    : ['Tanggal', 'No Nota', 'Uraian Transaksi', 'Terima Dana', 'Belanja', 'Sisa Kas']],
+                body: rowsSeksi.length ? rowsSeksi : [['-', '-', g.isBendahara ? 'Belum ada transaksi Bendahara' : 'Belum ada transaksi seksi', '-', '-', '-']],
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241] },
+                styles: { fontSize: 8 }
             });
-        }
+            currentY = doc.lastAutoTable.finalY + 8;
+        });
 
         // --- INVENTARIS ASET ---
         if(currentY > 220) { doc.addPage(); currentY = 20; }
