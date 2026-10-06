@@ -73,7 +73,7 @@
         </button>
         <button onclick="switchTab('seksi')" id="tab-seksi" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
             <i class="fa-solid fa-layer-group"></i>
-            <span>Rekap & Uraian Per Seksi</span>
+            <span>Rekap & Uraian Transaksi</span>
         </button>
         <button onclick="switchTab('aset')" id="tab-aset" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200">
             <i class="fa-solid fa-boxes-stacked"></i>
@@ -183,7 +183,7 @@
                     <i class="fa-solid fa-key text-indigo-600"></i>
                     <span>Password Akses Bendahara & Seksi</span>
                 </h2>
-                <p class="text-xs text-slate-500 mt-1">Buat password 4 digit angka untuk Bendahara Panitia dan setiap Seksi pada event aktif. Password dipakai saat login sebagai Panitia Pelaksana / Seksi.</p>
+                <p class="text-xs text-slate-500 mt-1">Buat password 4 digit angka untuk Bendahara Panitia dan setiap Seksi pada event aktif. Password dipakai saat login sebagai Panitia</p>
             </div>
             <div class="p-6">
                 <div class="overflow-x-auto">
@@ -276,6 +276,10 @@
                         <span>Rekapitulasi & Detail Uraian Transaksi Seksi</span>
                     </h2>
                 </div>
+                <button onclick="openModalNewTransaction()" id="btnCatatTxSeksi" style="display:none" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Catat Transaksi Kas</span>
+                </button>
                 <button onclick="openModalNewSeksi()" class="admin-only bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-folder-plus"></i>
                     <span>Tambah Seksi Baru</span>
@@ -362,7 +366,7 @@
                 <label class="block text-xs font-semibold text-slate-500 mb-1">Peran Akses</label>
                 <select id="loginRole" onchange="toggleLoginAkun()" class="w-full px-3 py-2 rounded-xl border text-sm">
                     <option value="admin">Super Admin (Pusat)</option>
-                    <option value="panitia">Panitia Pelaksana / Seksi</option>
+                    <option value="panitia">Panitia</option>
                 </select>
             </div>
             <div id="loginAkunWrapper" class="hidden">
@@ -433,6 +437,11 @@
                 </div>
             </div>
 
+            <div class="text-[11px] leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2">
+                <b>Pencatatan manual:</b> transaksi hanya tercatat di akun Anda sendiri. Penyerahan dana antara Bendahara dan Seksi
+                dicatat masing-masing oleh pihak yang bersangkutan, setelah dana fisik benar-benar diserahkan/diterima.
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 mb-1">Tipe / Jenis Transaksi</label>
@@ -452,8 +461,10 @@
             <div id="txPengeluaranCatWrapper" class="hidden">
                 <label class="block text-xs font-semibold text-slate-500 mb-1">Jenis Pengeluaran Seksi</label>
                 <select id="txPengeluaranCat" class="w-full px-3 py-2 rounded-xl border text-sm font-medium bg-amber-50 border-amber-200">
-                    <option value="dropping">Dana ke Seksi (dicatat di Kas Utama saja)</option>
+                    <option value="dropping">Dropping Dana ke Seksi (hanya tercatat di sisi Bendahara)</option>
                     <option value="belanja">Belanja / Pengeluaran Seksi Direct</option>
+                    <option value="setor">Setor Sisa Dana ke Bendahara Panitia (hanya tercatat di sisi Seksi)</option>
+                    <option value="hasil_usaha">Pengeluaran Hasil Usaha Dana (tidak masuk BKU)</option>
                 </select>
             </div>
 
@@ -461,11 +472,11 @@
             <div id="txSumberDanaWrapper" class="hidden">
                 <label class="block text-xs font-semibold text-slate-500 mb-1">Sumber Dana</label>
                 <select id="txSumberDana" class="w-full px-3 py-2 rounded-xl border text-sm font-medium bg-indigo-50 border-indigo-200">
-                    <option value="Kas Paroki">Kas Paroki</option>
+                    <option value="Kas Dana Ziarah">Kas Dana Ziarah</option>
                     <option value="Hasil Usaha Panitia">Hasil Usaha Panitia</option>
                     <option value="Sumbangan-Sumbangan">Sumbangan-Sumbangan</option>
-                    <option value="Stasi">Stasi</option>
-                    <option value="Rukun">Rukun</option>
+                    <option value="Kontribusi Stasi">Kontribusi Stasi</option>
+                    <option value="Kontribusi Rukun">Kontribusi Rukun</option>
                     <option value="Pengembalian Sisa Dana Dari Seksi">Pengembalian Sisa Dana Dari Seksi</option>
                 </select>
             </div>
@@ -478,6 +489,9 @@
                         <option value="Terima Dana dari Bendahara Panitia">Terima Dana dari Bendahara Panitia</option>
                         <option value="Penerimaan Lainnya">Penerimaan Lainnya</option>
                     </select>
+                </div>
+                <div id="txUraianSeksiWrapper" class="mb-2 hidden">
+                    <select id="txUraianSeksi" onchange="handleSeksiPengeluaranUraian()" class="w-full px-3 py-2 rounded-xl border text-sm"></select>
                 </div>
                 <input type="text" id="txDesc" class="w-full px-3 py-2 rounded-xl border text-sm" placeholder="Contoh: Pembelian Perlengkapan / Konsumsi Rapat">
             </div>
@@ -559,8 +573,8 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxmEOxi6Xd459g3cT79GKLhRXjJ-OF3jKb7zUhlXGsbl0LwHQeQkJf1-hmuOn4hJ1Sq/exec";
-    const PASSWORDS = { admin: "admin123" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7VhBgcO-5Ij3w9v9w_S3ryg1rfwV8NOyVqm4hcodSBO-ysDQcjTn6c5s8zfHsz1jV/exec";
+    const PASSWORDS = { admin: "admin" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
         currentEvent: "", chairperson: "", treasurer: "", pastorParoki: "", driveFolder: "",
@@ -594,6 +608,13 @@
         element.value = parseInt(value, 10).toLocaleString('id-ID'); 
     }
 
+    // Samakan nama sumber dana lama dengan nama di form saat ini
+    function normSumberDana(s) {
+        const map = { 'Kas Paroki': 'Kas Dana Ziarah', 'Stasi': 'Kontribusi Stasi', 'Rukun': 'Kontribusi Rukun' };
+        s = String(s || '').trim();
+        return map[s] || s;
+    }
+
     function cleanNumber(valStr) {
         if (!valStr) return 0;
         let cleaned = valStr.toString().replace(/\D/g, ''); 
@@ -616,13 +637,15 @@
         let isPengeluaranKasUtama = false;
         let isTerimaSeksi = false;
         let isBelanjaSeksi = false;
+        let isSetorSeksi = false;
+        let isHasilUsahaSeksi = false;
 
         if (type === 'pemasukan_umum') {
             isPenerimaanKasUtama = true;
             pihakName = pihakName || "Bendahara Panitia";
         } else if (type === 'terima_dana_seksi') {
-            // Pembukuan manual: pengeluaran Bendahara tidak otomatis menjadi penerimaan Seksi
             isPengeluaranKasUtama = true;
+            isTerimaSeksi = true;
         } else if (type === 'belanja_seksi') {
             isBelanjaSeksi = true;
         } else if (type === 'penerimaan') {
@@ -637,8 +660,15 @@
             } else {
                 let cat = t.pengeluaranCat || 'dropping';
                 if (cat === 'dropping') {
-                    // Dana ke Seksi hanya tercatat di Kas Utama; Seksi mencatat penerimaannya sendiri
                     isPengeluaranKasUtama = true;
+                    isTerimaSeksi = true;
+                } else if (cat === 'setor') {
+                    isSetorSeksi = true;
+                } else if (cat === 'hasil_usaha') {
+                    // Pengeluaran hasil usaha dana: diperlakukan sama seperti setor sisa dana
+                    // (tercatat di Rekap Buku Pembantu Kas Bendahara Panitia, tidak masuk BKU)
+                    isSetorSeksi = true;
+                    isHasilUsahaSeksi = true;
                 } else {
                     isBelanjaSeksi = true;
                 }
@@ -650,9 +680,148 @@
             isPengeluaranKasUtama,
             isTerimaSeksi,
             isBelanjaSeksi,
+            isSetorSeksi,
+            isHasilUsahaSeksi,
             pihakName,
             sumberDana
         };
+    }
+
+    // --- KLASIFIKASI ALIRAN TRANSAKSI ---
+    // BKU Kas Utama  : semua penerimaan & pengeluaran Bendahara dan Seksi,
+    //                  KECUALI perpindahan dana Bendahara <-> Seksi (dropping / terima dana / pengembalian sisa dana).
+    // Rekap & Uraian : Bendahara Panitia diperlakukan sama seperti Seksi; perpindahan dana Bendahara <-> Seksi tercatat di sini.
+    const DESC_TERIMA_BENDAHARA = "Terima Dana dari Bendahara Panitia";
+
+    // Deteksi uraian perpindahan dana Bendahara <-> Seksi (juga untuk data lama / uraian yang diketik manual)
+    function isUraianTransferKeSeksi(d) {
+        d = String(d || '').trim();
+        return /^(dropping|bayar ke|transfer ke|dana ke|serah(kan)? dana)/i.test(d) && /seksi/i.test(d);
+    }
+    function isUraianTransferDariSeksi(d) {
+        d = String(d || '').trim();
+        return /seksi/i.test(d) && /(pengembalian|kembali|sisa dana|setor)/i.test(d);
+    }
+    function isUraianTerimaDariBendahara(d) {
+        d = String(d || '').trim();
+        return !d || /^bayar ke/i.test(d) || /^terima dana/i.test(d) || /dari\s+bendahara/i.test(d);
+    }
+
+    function classifyTx(t) {
+        const norm = normalizeTx(t);
+        const r = {
+            norm,
+            bkuMasuk: false, bkuKeluar: false,
+            benMasuk: false, benKeluar: false,
+            seksiTerima: false, seksiBelanja: false,
+            benDesc: t.desc
+        };
+        // PENCATATAN MANUAL: transaksi baru (t.manual === true) hanya tercatat di sisi pencatatnya.
+        // Akun Bendahara & Seksi berdiri sendiri; tidak ada sisi lawan yang otomatis terbentuk.
+        // Transaksi lama (tanpa penanda manual) tetap memakai perilaku sinkron otomatis agar saldo lama tidak berubah.
+        const manual = (t.manual === true);
+        if (norm.isSetorSeksi) {
+            // Seksi menyetor sisa dana ke Bendahara Panitia: perpindahan internal, TIDAK masuk BKU.
+            // Sisi Seksi = pengeluaran (kas seksi berkurang).
+            // Sisi Bendahara (penerimaan) hanya otomatis untuk data lama; data baru dicatat Bendahara sendiri.
+            r.seksiBelanja = true;
+            if (!manual) {
+                r.benMasuk = true;
+                r.benDesc = norm.isHasilUsahaSeksi
+                    ? `Terima Setoran Hasil Usaha Dana ${norm.pihakName}`
+                    : `Terima Setoran Sisa Dana ${norm.pihakName}`;
+            }
+        } else if (norm.isPenerimaanKasUtama) {
+            // Penerimaan Bendahara (pengembalian sisa dana dari seksi = perpindahan internal, tidak masuk BKU)
+            r.benMasuk = true;
+            r.bkuMasuk = (norm.sumberDana !== 'Pengembalian Sisa Dana Dari Seksi') && !isUraianTransferDariSeksi(t.desc);
+        } else if (norm.isPengeluaranKasUtama && norm.isTerimaSeksi) {
+            // Dropping Bendahara -> Seksi: hanya di Rekap.
+            // Data baru: hanya sisi Bendahara; Seksi mencatat penerimaannya sendiri setelah dana fisik diterima.
+            // Data lama: sisi Seksi ikut otomatis.
+            r.benKeluar = true;
+            r.benDesc = `Bayar ke ${norm.pihakName}`;
+            if (!manual) r.seksiTerima = true;
+        } else if (norm.isPengeluaranKasUtama) {
+            // Pengeluaran Bendahara langsung
+            r.benKeluar = true;
+            r.bkuKeluar = !isUraianTransferKeSeksi(t.desc);
+        } else if (norm.isTerimaSeksi) {
+            // Seksi menerima dana: dari Bendahara (tidak masuk BKU) atau Penerimaan Lainnya (masuk BKU)
+            r.seksiTerima = true;
+            r.bkuMasuk = (norm.sumberDana === 'Hasil Usaha Panitia') || !isUraianTerimaDariBendahara(t.desc);
+        } else if (norm.isBelanjaSeksi) {
+            // Belanja seksi
+            r.seksiBelanja = true;
+            r.bkuKeluar = !norm.isHasilUsahaSeksi;
+        }
+        return r;
+    }
+
+    // Semua uraian yang tercatat di Buku Kas Umum diakhiri (Bendahara Panitia) / (Nama Seksi) sesuai pencatat
+    function bkuDesc(desc, pihak) {
+        let d = String(desc || '').trim();
+        const p = String(pihak || 'Bendahara Panitia').trim();
+        const suffix = ` (${p})`;
+        if (d.toLowerCase().endsWith(suffix.toLowerCase())) return d;
+        return (d || '-') + suffix;
+    }
+
+    function getBkuRows(txs) {
+        const rows = [];
+        txs.forEach(t => {
+            const c = classifyTx(t);
+            if (!c.bkuMasuk && !c.bkuKeluar) return;
+            rows.push({
+                t,
+                pihak: c.norm.pihakName || "Bendahara Panitia",
+                desc: bkuDesc(t.desc, c.norm.pihakName || "Bendahara Panitia"),
+                masuk: c.bkuMasuk ? Number(t.amount) : 0,
+                keluar: c.bkuKeluar ? Number(t.amount) : 0
+            });
+        });
+        return rows;
+    }
+
+    function getRekapDetailRows(txs) {
+        const rows = [];
+        txs.forEach(t => {
+            const c = classifyTx(t);
+            const amt = Number(t.amount);
+            if (c.benMasuk || c.benKeluar) {
+                rows.push({ side: 'ben', t, pihak: 'Bendahara Panitia', desc: c.benDesc, msk: c.benMasuk ? amt : 0, klr: c.benKeluar ? amt : 0 });
+            }
+            if (c.seksiTerima || c.seksiBelanja) {
+                let desc = t.desc;
+                if (c.seksiTerima && (!desc || desc.startsWith('Bayar ke'))) desc = DESC_TERIMA_BENDAHARA;
+                rows.push({ side: 'seksi', t, pihak: c.norm.pihakName || 'Umum', desc, msk: c.seksiTerima ? amt : 0, klr: c.seksiBelanja ? amt : 0 });
+            }
+        });
+        return rows;
+    }
+
+    function buildRekapGroups(txs, seksis, ev, onlySeksiName) {
+        const rows = getRekapDetailRows(txs);
+        const groups = [];
+        if (!onlySeksiName) {
+            groups.push({ isBendahara: true, name: 'Bendahara Panitia', pj: (ev && ev.treasurer) || '-', pagu: null, seksi: null,
+                rows: rows.filter(r => r.side === 'ben') });
+        }
+        seksis.filter(s => !onlySeksiName || s.name === onlySeksiName).forEach(s => {
+            groups.push({ isBendahara: false, name: s.name, pj: s.pj, pagu: s.pagu, seksi: s,
+                rows: rows.filter(r => r.side === 'seksi' && (r.pihak === s.name || r.t.seksiId === s.id)) });
+        });
+        groups.forEach(g => {
+            let saldo = 0, tm = 0, tk = 0;
+            g.rows.forEach(r => { tm += r.msk; tk += r.klr; saldo += (r.msk - r.klr); r.saldo = saldo; });
+            g.totalMasuk = tm; g.totalKeluar = tk; g.sisa = saldo;
+        });
+        return groups;
+    }
+
+    function isSeksiLoginNow() {
+        const akun = sessionStorage.getItem('userAkun') || '';
+        return sessionStorage.getItem('userRole') === 'panitia' && !!akun && akun !== 'Bendahara Panitia';
     }
 
     // --- HELPER KODE PIHAK UNTUK NO BUKTI OTOMATIS ---
@@ -850,6 +1019,21 @@
     function applyRoleAccess(role) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = role === 'admin' ? '' : 'none');
         document.getElementById('activeUserRoleDisplay').innerText = role === 'admin' ? 'Super Admin' : (sessionStorage.getItem('userAkun') || 'Panitia Pelaksana');
+        // Login sebagai Seksi: menu Dashboard Event disembunyikan
+        const seksiOnly = (role === 'panitia' && isSeksiLoginNow());
+        const tabDash = document.getElementById('tab-dashboard');
+        if (tabDash) tabDash.style.display = seksiOnly ? 'none' : '';
+        // Login Seksi: menu BKU juga disembunyikan, tombol Catat Transaksi Kas pindah ke menu Rekap & Uraian Per Seksi
+        const tabBku = document.getElementById('tab-bku');
+        if (tabBku) tabBku.style.display = seksiOnly ? 'none' : '';
+        const btnTxSeksi = document.getElementById('btnCatatTxSeksi');
+        if (btnTxSeksi) btnTxSeksi.style.display = seksiOnly ? '' : 'none';
+        if (seksiOnly) {
+            ['content-dashboard', 'content-bku'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.classList.contains('hidden')) switchTab('seksi');
+            });
+        }
     }
 
     function triggerLogout() { sessionStorage.clear(); location.reload(); }
@@ -1015,6 +1199,7 @@
         document.getElementById('txUraianSelect').selectedIndex = 0;
         document.getElementById('txPengeluaranCat').selectedIndex = 0;
         document.getElementById('txPihak').innerHTML = '';
+        document.getElementById('txUraianSeksi').innerHTML = '';
         removeNotaFile();
         handleTxFormChange(); 
     }
@@ -1029,6 +1214,10 @@
         const type = document.getElementById('txType').value;
         const pihakSelect = document.getElementById('txPihak');
         const activeSeksi = appState.seksi.filter(s => s.eventName === appState.currentEvent);
+
+        // Reset tampilan uraian (khusus pengeluaran Seksi akan diatur ulang di handleTxFormChangePanitia)
+        document.getElementById('txUraianSeksiWrapper').classList.add('hidden');
+        document.getElementById('txDesc').classList.remove('hidden');
 
         // Alur khusus login Bendahara Panitia / Seksi
         if (sessionStorage.getItem('userRole') === 'panitia') {
@@ -1110,6 +1299,7 @@
         pihakSelect.disabled = false;
 
         let uraianOtomatis = false;
+        let seksiKeluar = false;
 
         if (isBendahara) {
             // Bendahara: kotak "Diterima dari" dihilangkan; penerimaan -> Sumber Dana, pengeluaran -> langsung uraian
@@ -1124,8 +1314,8 @@
                 // Khusus Seksi Usaha Dana tersedia pilihan tambahan "Penerimaan Lainnya" (uraian diisi manual).
                 const prevPihak = pihakSelect.value;
                 if (akun === 'Seksi Usaha Dana') {
-                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option><option value="Penerimaan Lainnya">Penerimaan Lainnya</option>`;
-                    if (prevPihak === 'Penerimaan Lainnya') pihakSelect.value = 'Penerimaan Lainnya';
+                    pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option><option value="Hasil Usaha Panitia">Hasil Usaha Panitia</option><option value="Penerimaan Lainnya">Penerimaan Lainnya</option>`;
+                    if (prevPihak === 'Penerimaan Lainnya' || prevPihak === 'Hasil Usaha Panitia') pihakSelect.value = prevPihak;
                 } else {
                     pihakSelect.innerHTML = `<option value="Bendahara Panitia">Bendahara Panitia</option>`;
                     pihakSelect.disabled = true;
@@ -1136,6 +1326,14 @@
                 // Seksi pengeluaran: langsung uraian, nominal, foto nota
                 pihakSelect.innerHTML = `<option value="${akun}">${akun}</option>`;
                 pihakWrapper.classList.add('hidden');
+                seksiKeluar = true;
+                const selUr = document.getElementById('txUraianSeksi');
+                const prevUr = selUr.value;
+                selUr.innerHTML = `<option value="setor">Setor ke Bendahara Panitia Sisa Dana ${akun}</option>`
+                    + (akun === 'Seksi Usaha Dana' ? `<option value="hasil_usaha">Hasil Usaha Dana</option>` : '')
+                    + `<option value="lain">Pengeluaran Lainnya</option>`;
+                if (prevUr && Array.from(selUr.options).some(o => o.value === prevUr)) selUr.value = prevUr;
+                document.getElementById('txUraianSeksiWrapper').classList.remove('hidden');
             }
         }
 
@@ -1149,8 +1347,27 @@
             descInput.classList.remove('bg-slate-100');
         }
 
+        if (seksiKeluar) handleSeksiPengeluaranUraian();
+
         if (!editingTxId) {
             document.getElementById('txNoNota').value = generateAutoNoNota(type, akun);
+        }
+    }
+
+    // Seksi - pengeluaran: "Setor ke Bendahara Panitia" (langsung nominal) atau "Pengeluaran Lainnya" (isi uraian)
+    function handleSeksiPengeluaranUraian() {
+        const akun = sessionStorage.getItem('userAkun') || '';
+        const val = document.getElementById('txUraianSeksi').value;
+        const descInput = document.getElementById('txDesc');
+        if (val === 'setor') {
+            descInput.value = `Setor ke Bendahara Panitia Sisa Dana ${akun}`;
+            descInput.readOnly = true;
+            descInput.classList.add('hidden');
+        } else {
+            if (descInput.readOnly) descInput.value = '';
+            descInput.readOnly = false;
+            descInput.classList.remove('hidden', 'bg-slate-100');
+            descInput.placeholder = (val === 'hasil_usaha') ? 'Tulis uraian pengeluaran hasil usaha dana...' : 'Tulis uraian pengeluaran...';
         }
     }
 
@@ -1188,7 +1405,7 @@
         handleTxFormChange();
 
         if (tx.pihakTerkait) document.getElementById('txPihak').value = tx.pihakTerkait;
-        if (tx.sumberDana) document.getElementById('txSumberDana').value = tx.sumberDana;
+        if (tx.sumberDana) document.getElementById('txSumberDana').value = normSumberDana(tx.sumberDana);
         if (tx.pengeluaranCat) document.getElementById('txPengeluaranCat').value = tx.pengeluaranCat;
         
         document.getElementById('txDesc').value = tx.desc;
@@ -1214,11 +1431,10 @@
         const isSeksiLogin = (roleNow === 'panitia' && akunNow && akunNow !== 'Bendahara Panitia');
         let type = uiType;
         let pihakTerkait = document.getElementById('txPihak').value;
+        const pihakPilihan = pihakTerkait;
         if (isSeksiLogin) {
             // Seksi: penerimaan = menambah kas seksi saja (kas Bendahara tidak berkurang), pengeluaran = belanja seksi
             pihakTerkait = akunNow;
-            // Pembukuan manual & berdiri sendiri: penerimaan seksi hanya menambah kas seksi
-            // (tidak otomatis mengurangi / tercatat di Buku Kas Umum Bendahara)
             type = (uiType === 'penerimaan') ? 'penerimaan' : 'pengeluaran';
         } else if (roleNow === 'panitia') {
             pihakTerkait = 'Bendahara Panitia';
@@ -1226,9 +1442,11 @@
         const desc = document.getElementById('txDesc').value.trim();
         const amount = cleanNumber(document.getElementById('txAmount').value);
         
-        const sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
+        let sumberDana = (type === 'penerimaan' && pihakTerkait === 'Bendahara Panitia') ? document.getElementById('txSumberDana').value : '';
+        if (isSeksiLogin && uiType === 'penerimaan' && pihakPilihan === 'Hasil Usaha Panitia') sumberDana = 'Hasil Usaha Panitia';
+        const uraianSeksiPilih = isSeksiLogin ? document.getElementById('txUraianSeksi').value : '';
         const pengeluaranCat = isSeksiLogin
-            ? (uiType === 'penerimaan' ? '' : 'belanja')
+            ? (uiType === 'penerimaan' ? '' : (uraianSeksiPilih === 'setor' ? 'setor' : (uraianSeksiPilih === 'hasil_usaha' ? 'hasil_usaha' : 'belanja')))
             : ((type === 'pengeluaran' && pihakTerkait !== 'Bendahara Panitia') ? document.getElementById('txPengeluaranCat').value : '');
 
         if(!noNota || !desc || !amount) return alert("Lengkapi data transaksi dan nominal yang valid!");
@@ -1240,6 +1458,8 @@
         }
 
         let existingTx = editingTxId ? appState.transactions.find(t => t.id === editingTxId) : null;
+        // Edit oleh admin: pertahankan sumber dana transaksi seksi (mis. Hasil Usaha Panitia)
+        if (!sumberDana && existingTx && existingTx.sumberDana && pihakTerkait !== 'Bendahara Panitia') sumberDana = existingTx.sumberDana;
         let notaPhotoData = existingTx ? existingTx.notaPhoto : null;
 
         // Jika ada foto nota baru yang dipilih
@@ -1300,6 +1520,9 @@
             amount,
             sumberDana,
             pengeluaranCat,
+            // Pencatatan manual: transaksi baru tidak otomatis tercermin di akun pihak lain.
+            // Transaksi lama yang diedit tetap mempertahankan perilaku lamanya.
+            manual: existingTx ? (existingTx.manual === true) : true,
             notaPhoto: notaPhotoData
         };
 
@@ -1413,8 +1636,9 @@
 
         activeTx.forEach(t => {
             const norm = normalizeTx(t);
-            if (norm.isPenerimaanKasUtama) totalPemasukanKasUtama += Number(t.amount);
-            if (norm.isPengeluaranKasUtama) totalPengeluaranKasUtama += Number(t.amount);
+            const cf = classifyTx(t);
+            if (cf.bkuMasuk) totalPemasukanKasUtama += Number(t.amount);
+            if (cf.bkuKeluar) totalPengeluaranKasUtama += Number(t.amount);
             if (norm.isBelanjaSeksi) totalRealisasiBelanja += Number(t.amount);
         });
 
@@ -1447,20 +1671,15 @@
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
         document.getElementById('bkuTableBody').innerHTML = txs.map(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return '';
+            const c = classifyTx(t);
+            if (!c.bkuMasuk && !c.bkuKeluar) return '';
 
-            let masuk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let keluar = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
+            let masuk = c.bkuMasuk ? Number(t.amount) : 0;
+            let keluar = c.bkuKeluar ? Number(t.amount) : 0;
             saldo += (masuk - keluar);
-            
-            let pihakDisplay = norm.pihakName || "Bendahara Panitia";
-            
-            // PERUBAHAN 4: URAIAN OTOMATIS BAYAR KE SEKSI
-            let displayDesc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihakDisplay !== 'Bendahara Panitia') {
-                displayDesc = `Bayar ke ${pihakDisplay}`;
-            }
+
+            let pihakDisplay = c.norm.pihakName || "Bendahara Panitia";
+            let displayDesc = bkuDesc(t.desc, pihakDisplay);
 
             let notaLink = '-';
             if (t.notaPhoto) {
@@ -1495,48 +1714,28 @@
         const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
-        document.getElementById('seksiTableBody').innerHTML = seksis.map(s => {
-            let dTerima = 0;
-            let dBelanja = 0;
+        const onlySeksi = isSeksiLoginNow() ? (sessionStorage.getItem('userAkun') || '') : '';
+        const groups = buildRekapGroups(txs, seksis, { treasurer: appState.treasurer }, onlySeksi);
 
-            txs.forEach(t => {
-                const norm = normalizeTx(t);
-                if (norm.pihakName === s.name || t.seksiId === s.id) {
-                    if (norm.isTerimaSeksi) dTerima += Number(t.amount);
-                    if (norm.isBelanjaSeksi) dBelanja += Number(t.amount);
-                }
-            });
-
-            // Sisa Kas Seksi hanya berubah oleh dana yang diterima seksi dan belanja yang dicatat seksi sendiri
-            let sisaKas = dTerima - dBelanja;
-            
+        document.getElementById('seksiTableBody').innerHTML = groups.map(g => {
+            const aksi = g.isBendahara
+                ? `<td class="py-2.5 px-4 text-center admin-only"></td>`
+                : `<td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.seksi=appState.seksi.filter(x=>x.id!==${g.seksi.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>`;
             return `<tr class="hover:bg-slate-50 border-b border-slate-100">
-                <td class="py-2.5 px-4 font-semibold">${s.name}</td>
-                <td class="py-2.5 px-4">${s.pj || '-'}</td>
-                <td class="py-2.5 px-4 text-right">Rp ${Number(s.pagu||0).toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-emerald-600 font-bold">Rp ${dTerima.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-rose-600 font-bold">Rp ${dBelanja.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-right text-indigo-600 font-bold">Rp ${sisaKas.toLocaleString('id-ID')}</td>
-                <td class="py-2.5 px-4 text-center admin-only"><button onclick="appState.seksi=appState.seksi.filter(x=>x.id!==${s.id});saveStateToCloud();refreshAllViews();" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></td>
+                <td class="py-2.5 px-4 font-semibold">${g.name}</td>
+                <td class="py-2.5 px-4">${g.pj || '-'}</td>
+                <td class="py-2.5 px-4 text-right">${g.isBendahara ? '-' : 'Rp ' + Number(g.pagu||0).toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-emerald-600 font-bold">Rp ${g.totalMasuk.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-rose-600 font-bold">Rp ${g.totalKeluar.toLocaleString('id-ID')}</td>
+                <td class="py-2.5 px-4 text-right text-indigo-600 font-bold">Rp ${g.sisa.toLocaleString('id-ID')}</td>
+                ${aksi}
             </tr>`;
         }).join('') || `<tr><td colspan="7" class="py-4 text-center text-slate-400">Belum ada seksi.</td></tr>`;
 
-        const detailTxs = txs.filter(t => {
-            const norm = normalizeTx(t);
-            return norm.isTerimaSeksi || norm.isBelanjaSeksi;
-        });
+        const detailRows = getRekapDetailRows(txs).filter(r => !onlySeksi || (r.side === 'seksi' && r.pihak === onlySeksi));
 
-        document.getElementById('seksiDetailTableBody').innerHTML = detailTxs.map(t => {
-            const norm = normalizeTx(t);
-            const sName = norm.pihakName || 'Umum';
-            const msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
-            const klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-
-            let displaySeksiDesc = t.desc;
-            if (norm.isTerimaSeksi && (!displaySeksiDesc || displaySeksiDesc.startsWith('Bayar ke'))) {
-                displaySeksiDesc = "Terima Dana dari Bendahara Panitia";
-            }
-
+        document.getElementById('seksiDetailTableBody').innerHTML = detailRows.map(r => {
+            const t = r.t;
             let notaLink = '-';
             if (t.notaPhoto) {
                 const targetUrl = t.notaPhoto.fileUrl || t.notaPhoto.base64;
@@ -1546,13 +1745,13 @@
             }
 
             return `<tr class="hover:bg-slate-50 border-b border-slate-100">
-                <td class="py-2 px-4 font-medium text-xs">${sName}</td>
+                <td class="py-2 px-4 font-medium text-xs">${r.pihak}</td>
                 <td class="py-2 px-4 text-xs">${t.date || '-'}</td>
                 <td class="py-2 px-4 font-mono text-xs">${t.noNota || '-'}</td>
-                <td class="py-2 px-4 text-xs">${displaySeksiDesc}</td>
+                <td class="py-2 px-4 text-xs">${r.desc}</td>
                 <td class="py-2 px-4 text-center">${notaLink}</td>
-                <td class="py-2 px-4 text-right text-emerald-600 font-medium text-xs">${msk ? 'Rp '+msk.toLocaleString('id-ID') : '-'}</td>
-                <td class="py-2 px-4 text-right text-rose-600 font-medium text-xs">${klr ? 'Rp '+klr.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-right text-emerald-600 font-medium text-xs">${r.msk ? 'Rp '+r.msk.toLocaleString('id-ID') : '-'}</td>
+                <td class="py-2 px-4 text-right text-rose-600 font-medium text-xs">${r.klr ? 'Rp '+r.klr.toLocaleString('id-ID') : '-'}</td>
                 <td class="py-2 px-4 text-center admin-only">
                     <div class="inline-flex space-x-1">
                         <button onclick="openEditTransactionModal(${t.id})" title="Edit" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1 rounded"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -1604,19 +1803,9 @@
             ["Tanggal", "No. Bukti", "Pihak Terkait", "Uraian Transaksi", "Penerimaan (Rp)", "Pengeluaran (Rp)", "Saldo Kas Umum (Rp)"]
         ];
         let sldBku = 0;
-        txs.forEach(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
-            
-            let msk = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let klr = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
-            sldBku += (msk - klr);
-
-            let pihak = norm.pihakName || "Bendahara Panitia";
-            let desc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') desc = `Bayar ke ${pihak}`;
-
-            aoaBku.push([t.date || '-', t.noNota || '-', pihak, desc, msk, klr, sldBku]);
+        getBkuRows(txs).forEach(r => {
+            sldBku += (r.masuk - r.keluar);
+            aoaBku.push([r.t.date || '-', r.t.noNota || '-', r.pihak, r.desc, r.masuk, r.keluar, sldBku]);
         });
         aoaBku.push([], [], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaBku), "Buku Kas Umum");
@@ -1627,24 +1816,16 @@
             [`LAPORAN REKAPITULASI DAN URAIAN TRANSAKSI PER SEKSI`],
             []
         ];
-        seksis.forEach(s => {
-            aoaSeksi.push([`Seksi: ${s.name}`, `PJ: ${s.pj || '-'}`, `Pagu Anggaran: Rp ${s.pagu || 0}`]);
-            aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Terima Dana", "Belanja", "Sisa Kas Seksi"]);
-            
-            let kasSeksi = 0;
-            txs.forEach(t => {
-                const norm = normalizeTx(t);
-                if (norm.pihakName === s.name || t.seksiId === s.id) {
-                    if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
-                        let msk = norm.isTerimaSeksi ? Number(t.amount) : 0;
-                        let klr = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-                        kasSeksi += (msk - klr);
-                        
-                        let desc = t.desc;
-                        if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) desc = "Terima Dana dari Bendahara Panitia";
-                        aoaSeksi.push([t.date || '-', t.noNota || '-', desc, msk, klr, kasSeksi]);
-                    }
-                }
+        buildRekapGroups(txs, seksis, ev).forEach(g => {
+            if (g.isBendahara) {
+                aoaSeksi.push([`Bendahara Panitia`, `PJ: ${g.pj || '-'}`]);
+                aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Penerimaan", "Pengeluaran", "Sisa Kas Bendahara"]);
+            } else {
+                aoaSeksi.push([`Seksi: ${g.name}`, `PJ: ${g.pj || '-'}`, `Pagu Anggaran: Rp ${g.pagu || 0}`]);
+                aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Terima Dana", "Belanja", "Sisa Kas Seksi"]);
+            }
+            g.rows.forEach(r => {
+                aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.klr, r.saldo]);
             });
             aoaSeksi.push([]); 
         });
@@ -1692,13 +1873,13 @@
         await hydrateNotaImages(txs);
 
         // KOP JUDUL LPJ
-        doc.setFontSize(14); 
+        doc.setFontSize(12); 
         doc.setFont(undefined, 'bold');
-        doc.text(`KEPANITIAAN ${ev.name.toUpperCase()}`, 14, 15);
+        doc.text(`LAPORAN PERTANGGUNGJAWABAN ${ev.name.toUpperCase()}`, 14, 15);
         doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.text(`LAPORAN PERTANGGUNGJAWABAN (LPJ) KEUANGAN TERPADU`, 14, 21);
-        doc.text(`Ketua: ${ev.chair || '-'}  |  Pastor Paroki: ${ev.pastorParoki || '-'}  |  Bendahara: ${ev.treasurer || '-'}`, 14, 26);
+        doc.setFont(undefined, 'bold');
+        doc.text(`PAROKI ST. PETRUS MAMASA`, 14, 21);
+        doc.text(`Ketua : ${ev.chair || '-'}  |  Pastor Paroki : ${ev.pastorParoki || '-'}  |  Bendahara : ${ev.treasurer || '-'}`, 14, 26);
         doc.line(14, 28, 196, 28);
 
         let currentY = 35;
@@ -1709,13 +1890,16 @@
         doc.text(`1. REKAPITULASI PENERIMAAN KAS UTAMA BERDASARKAN SUMBER DANA`, 14, currentY);
         doc.setFont(undefined, 'normal');
 
+        const SRC_RETUR = "Pengembalian Sisa Dana Dari Seksi";
+        const SRC_LAIN = "Penerimaan Lainnya";
         const sources = [
-            "Kas Paroki",
+            "Kas Dana Ziarah",
             "Hasil Usaha Panitia",
             "Sumbangan-Sumbangan",
-            "Stasi",
-            "Rukun",
-            "Pengembalian Sisa Dana Dari Seksi"
+            "Kontribusi Stasi",
+            "Kontribusi Rukun",
+            SRC_RETUR,
+            SRC_LAIN
         ];
 
         let sourceTotals = {};
@@ -1723,17 +1907,33 @@
 
         txs.forEach(t => {
             const norm = normalizeTx(t);
-            if (norm.isPenerimaanKasUtama && norm.sumberDana && sourceTotals.hasOwnProperty(norm.sumberDana)) {
-                sourceTotals[norm.sumberDana] += Number(t.amount);
+            const c = classifyTx(t);
+            const amt = Number(t.amount) || 0;
+            if (norm.isSetorSeksi) {
+                // Setoran sisa dana Seksi ke Bendahara Panitia (hanya data lama; data baru dihitung
+                // dari penerimaan yang dicatat Bendahara sendiri dengan sumber "Pengembalian Sisa Dana Dari Seksi")
+                // (setoran hasil usaha dana tidak menambah rekapitulasi sumber dana)
+                if (t.manual !== true && !norm.isHasilUsahaSeksi) sourceTotals[SRC_RETUR] += amt;
+            } else if (norm.isPenerimaanKasUtama) {
+                const src = normSumberDana(norm.sumberDana);
+                if (sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
+                else sourceTotals[SRC_LAIN] += amt;   // tanpa sumber dana / data lama
+            } else if (c.bkuMasuk) {
+                // Penerimaan oleh Seksi yang masuk BKU: Hasil Usaha Panitia, atau Penerimaan Lainnya
+                const src = normSumberDana(norm.sumberDana);
+                if (src && src !== SRC_RETUR && sourceTotals.hasOwnProperty(src)) sourceTotals[src] += amt;
+                else sourceTotals[SRC_LAIN] += amt;
             }
         });
 
         let grandTotalPenerimaan = 0;
-        let rowsSumberDana = sources.map(s => {
-            let amt = sourceTotals[s];
-            grandTotalPenerimaan += amt;
-            return [s, `Rp ${amt.toLocaleString('id-ID')}`];
-        });
+        let rowsSumberDana = sources
+            .filter(s => s !== SRC_LAIN || sourceTotals[s] > 0)
+            .map(s => {
+                let amt = sourceTotals[s];
+                grandTotalPenerimaan += amt;
+                return [s, `Rp ${amt.toLocaleString('id-ID')}`];
+            });
 
         rowsSumberDana.push(['TOTAL PENERIMAAN', `Rp ${grandTotalPenerimaan.toLocaleString('id-ID')}`]);
 
@@ -1758,26 +1958,14 @@
 
         let sldBku = 0;
         let rowsBku = [];
-        txs.forEach(t => {
-            const norm = normalizeTx(t);
-            if (!norm.isPenerimaanKasUtama && !norm.isPengeluaranKasUtama) return;
-
-            let m = norm.isPenerimaanKasUtama ? Number(t.amount) : 0;
-            let k = norm.isPengeluaranKasUtama ? Number(t.amount) : 0;
-            sldBku += (m - k);
-
-            let pihak = norm.pihakName || "Bendahara Panitia";
-            let desc = t.desc;
-            if (norm.isPengeluaranKasUtama && pihak !== 'Bendahara Panitia') {
-                desc = `Bayar ke ${pihak}`;
-            }
-
+        getBkuRows(txs).forEach(r => {
+            sldBku += (r.masuk - r.keluar);
             rowsBku.push([
-                t.date || '-',
-                t.noNota || '-',
-                desc,
-                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
-                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
+                r.t.date || '-',
+                r.t.noNota || '-',
+                r.desc,
+                r.masuk ? `Rp ${r.masuk.toLocaleString('id-ID')}` : '-',
+                r.keluar ? `Rp ${r.keluar.toLocaleString('id-ID')}` : '-',
                 `Rp ${sldBku.toLocaleString('id-ID')}`
             ]);
         });
@@ -1797,61 +1985,42 @@
         if(currentY > 230) { doc.addPage(); currentY = 20; }
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
-        doc.text(`3. REKAPITULASI & URAIAN TRANSAKSI PER SEKSI`, 14, currentY);
+        doc.text(`3. REKAPITULASI & URAIAN TRANSAKSI`, 14, currentY);
         doc.setFont(undefined, 'normal');
         currentY += 6;
 
-        if(seksis.length === 0) {
+        buildRekapGroups(txs, seksis, ev).forEach(g => {
+            if(currentY > 230) { doc.addPage(); currentY = 20; }
             doc.setFontSize(9);
-            doc.text(`(Belum ada data Seksi untuk event ini)`, 14, currentY);
-            currentY += 10;
-        } else {
-            seksis.forEach(s => {
-                if(currentY > 230) { doc.addPage(); currentY = 20; }
-                doc.setFontSize(9);
-                doc.setFont(undefined, 'bold');
-                doc.text(`Seksi: ${s.name} (PJ: ${s.pj || '-'}) | Pagu: Rp ${(Number(s.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
-                doc.setFont(undefined, 'normal');
+            doc.setFont(undefined, 'bold');
+            if (g.isBendahara) {
+                doc.text(`Buku Pembantu Kas Bendahara Panitia ( ${g.pj || '-'})`, 14, currentY);
+            } else {
+                doc.text(`Seksi: ${g.name} (PJ: ${g.pj || '-'}) | Pagu: Rp ${(Number(g.pagu)||0).toLocaleString('id-ID')}`, 14, currentY);
+            }
+            doc.setFont(undefined, 'normal');
 
-                let kasSeksi = 0;
-                let rowsSeksi = [];
+            const rowsSeksi = g.rows.map(r => [
+                r.t.date || '-',
+                r.t.noNota || '-',
+                r.desc,
+                r.msk ? `Rp ${r.msk.toLocaleString('id-ID')}` : '-',
+                r.klr ? `Rp ${r.klr.toLocaleString('id-ID')}` : '-',
+                `Rp ${r.saldo.toLocaleString('id-ID')}`
+            ]);
 
-                txs.forEach(t => {
-                    const norm = normalizeTx(t);
-                    if (norm.pihakName === s.name || t.seksiId === s.id) {
-                        if (norm.isTerimaSeksi || norm.isBelanjaSeksi) {
-                            let m = norm.isTerimaSeksi ? Number(t.amount) : 0;
-                            let k = norm.isBelanjaSeksi ? Number(t.amount) : 0;
-                            kasSeksi += (m - k);
-
-                            let desc = t.desc;
-                            if (norm.isTerimaSeksi && (!desc || desc.startsWith('Bayar ke'))) {
-                                desc = "Terima Dana dari Bendahara Panitia";
-                            }
-
-                            rowsSeksi.push([
-                                t.date || '-',
-                                t.noNota || '-',
-                                desc,
-                                m ? `Rp ${m.toLocaleString('id-ID')}` : '-',
-                                k ? `Rp ${k.toLocaleString('id-ID')}` : '-',
-                                `Rp ${kasSeksi.toLocaleString('id-ID')}`
-                            ]);
-                        }
-                    }
-                });
-
-                doc.autoTable({
-                    startY: currentY + 3,
-                    head: [['Tanggal', 'No Nota', 'Uraian Transaksi', 'Terima Dana', 'Belanja', 'Sisa Kas']],
-                    body: rowsSeksi.length ? rowsSeksi : [['-', '-', 'Belum ada transaksi seksi', '-', '-', '-']],
-                    theme: 'grid',
-                    headStyles: { fillColor: [99, 102, 241] },
-                    styles: { fontSize: 8 }
-                });
-                currentY = doc.lastAutoTable.finalY + 8;
+            doc.autoTable({
+                startY: currentY + 3,
+                head: [g.isBendahara
+                    ? ['Tanggal', 'No Nota', 'Uraian Transaksi', 'Penerimaan', 'Pengeluaran', 'Sisa Kas']
+                    : ['Tanggal', 'No Nota', 'Uraian Transaksi', 'Terima Dana', 'Belanja', 'Sisa Kas']],
+                body: rowsSeksi.length ? rowsSeksi : [['-', '-', g.isBendahara ? 'Belum ada transaksi Bendahara' : 'Belum ada transaksi seksi', '-', '-', '-']],
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241] },
+                styles: { fontSize: 8 }
             });
-        }
+            currentY = doc.lastAutoTable.finalY + 8;
+        });
 
         // --- INVENTARIS ASET ---
         if(currentY > 220) { doc.addPage(); currentY = 20; }
@@ -1974,5 +2143,3 @@
         showNotification("Berhasil mengunduh Laporan PDF LPJ beserta Lampiran Nota!");
     }
 </script>
-
-
