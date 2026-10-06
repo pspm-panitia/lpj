@@ -93,7 +93,7 @@
                 <div>
                     <span class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">Event / Kepanitiaan Terpilih</span>
                     <h2 id="displayCurrentEventTitle" class="text-lg font-bold text-slate-800">Belum Ada Event</h2>
-                    <p class="text-xs text-slate-500">Ketua : <span id="displayChairperson" class="font-medium text-slate-700">-</span> | Pastor Paroki : <span id="displayPastor" class="font-medium text-slate-700">-</span> | Bendahara : <span id="displayTreasurer" class="font-medium text-slate-700">-</span></p>
+                    <p class="text-xs text-slate-500">Ketua: <span id="displayChairperson" class="font-medium text-slate-700">-</span> | Pastor Paroki: <span id="displayPastor" class="font-medium text-slate-700">-</span> | Bendahara: <span id="displayTreasurer" class="font-medium text-slate-700">-</span></p>
                 </div>
             </div>
             <!-- Dropdown Ganti Event di Dashboard (HANYA MUNCUL UNTUK ADMIN) -->
@@ -236,7 +236,7 @@
                         <i class="fa-solid fa-book-open text-indigo-600"></i>
                         <span>Buku Kas Umum (BKU) Kas Utama</span>
                     </h2>
-                    <p class="text-xs text-slate-500">Mencatat penerimaan utama dan pengeluaran/dropping kas kepanitiaan.</p>
+                    <p class="text-xs text-slate-500">Mencatat penerimaan & pengeluaran Bendahara dan Seksi. Perpindahan dana Bendahara-Seksi tidak dicatat di sini agar tidak terjadi pencatatan ganda.</p>
                 </div>
                 <button onclick="openModalNewTransaction()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-receipt"></i>
@@ -440,6 +440,9 @@
             <div class="text-[11px] leading-snug bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-3 py-2">
                 <b>Pencatatan manual:</b> transaksi hanya tercatat di akun Anda sendiri. Penyerahan dana antara Bendahara dan Seksi
                 dicatat masing-masing oleh pihak yang bersangkutan, setelah dana fisik benar-benar diserahkan/diterima.
+                <br><b>Hindari pencatatan ganda:</b> penyerahan dana Bendahara ke Seksi cukup diawali uraian "Dropping ke Seksi ..." (tidak masuk BKU,
+                karena baru dihitung saat Seksi membelanjakannya). Setoran sisa dana dari Seksi dicatat Bendahara dengan Sumber Dana
+                "Pengembalian Sisa Dana Dari Seksi".
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -573,7 +576,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7VhBgcO-5Ij3w9v9w_S3ryg1rfwV8NOyVqm4hcodSBO-ysDQcjTn6c5s8zfHsz1jV/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNUvhL_u1tSh3a84W-IAtbKQerdnX3iMcHQzrVnOBSmfe9SkgdRL4YXzGsguPcVSpw/exec";
     const PASSWORDS = { admin: "admin" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -788,9 +791,8 @@
         txs.forEach(t => {
             const c = classifyTx(t);
             const amt = Number(t.amount);
-            if (c.benMasuk || c.benKeluar) {
-                rows.push({ side: 'ben', t, pihak: 'Bendahara Panitia', desc: c.benDesc, msk: c.benMasuk ? amt : 0, klr: c.benKeluar ? amt : 0 });
-            }
+            // Sisi Bendahara tidak lagi ditampilkan di rekap/uraian (Buku Pembantu Kas Bendahara dihilangkan);
+            // pencatatan Bendahara hanya ada di Buku Kas Umum.
             if (c.seksiTerima || c.seksiBelanja) {
                 let desc = t.desc;
                 if (c.seksiTerima && (!desc || desc.startsWith('Bayar ke'))) desc = DESC_TERIMA_BENDAHARA;
@@ -803,10 +805,7 @@
     function buildRekapGroups(txs, seksis, ev, onlySeksiName) {
         const rows = getRekapDetailRows(txs);
         const groups = [];
-        if (!onlySeksiName) {
-            groups.push({ isBendahara: true, name: 'Bendahara Panitia', pj: (ev && ev.treasurer) || '-', pagu: null, seksi: null,
-                rows: rows.filter(r => r.side === 'ben') });
-        }
+        // Buku Pembantu Kas Bendahara Panitia dihilangkan: transaksi Bendahara hanya dicatat di BKU.
         seksis.filter(s => !onlySeksiName || s.name === onlySeksiName).forEach(s => {
             groups.push({ isBendahara: false, name: s.name, pj: s.pj, pagu: s.pagu, seksi: s,
                 rows: rows.filter(r => r.side === 'seksi' && (r.pihak === s.name || r.t.seksiId === s.id)) });
@@ -1109,8 +1108,18 @@
     }
 
     function switchTab(tabId) {
+        // Login sebagai Seksi: Dashboard & BKU tidak boleh dibuka, arahkan ke Rekap & Uraian Transaksi
+        if (isSeksiLoginNow() && (tabId === 'dashboard' || tabId === 'bku')) tabId = 'seksi';
         document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(`content-${tabId}`).classList.remove('hidden');
+        // Tandai menu yang sedang aktif
+        const ON = ['bg-indigo-600', 'text-white', 'shadow-sm'];
+        const OFF = ['bg-white', 'text-slate-600', 'hover:bg-slate-100', 'border', 'border-slate-200'];
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            const active = (b.id === `tab-${tabId}`);
+            b.classList.remove(...(active ? OFF : ON));
+            b.classList.add(...(active ? ON : OFF));
+        });
     }
 
     function switchEvent(eventName) {
@@ -1421,7 +1430,15 @@
         }
     }
 
+    // Pengaman pencatatan ganda: cegah klik/simpan berulang saat proses berjalan
+    let _savingTx = false;
     async function saveNewTransaction() {
+        if (_savingTx) return;
+        _savingTx = true;
+        try { await saveNewTransactionImpl(); } finally { _savingTx = false; }
+    }
+
+    async function saveNewTransactionImpl() {
         ensureAppStateData();
         const noNota = document.getElementById('txNoNota').value.trim();
         const date = document.getElementById('txDate').value;
@@ -1450,6 +1467,16 @@
             : ((type === 'pengeluaran' && pihakTerkait !== 'Bendahara Panitia') ? document.getElementById('txPengeluaranCat').value : '');
 
         if(!noNota || !desc || !amount) return alert("Lengkapi data transaksi dan nominal yang valid!");
+
+        // Pengaman pencatatan ganda (hanya untuk transaksi baru)
+        if (!editingTxId) {
+            const sameEvent = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+            const normDesc = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            const kembar = sameEvent.find(t =>
+                t.date === date && t.type === type && (t.pihakTerkait || '') === pihakTerkait &&
+                Number(t.amount) === amount && normDesc(t.desc) === normDesc(desc));
+            if (kembar && !confirm(`Transaksi yang sama persis sudah tercatat (No. ${kembar.noNota || '-'}: tanggal, pihak, uraian, dan nominal sama).\n\nSimpan lagi? Pilih Batal jika ini tidak sengaja dobel.`)) return;
+        }
 
         let seksiId = null;
         if (pihakTerkait !== 'Bendahara Panitia') {
@@ -1508,10 +1535,16 @@
             }
         }
 
+        // Nomor bukti tidak boleh kembar dalam satu event: bila bentrok, buat nomor baru
+        let noNotaFinal = noNota;
+        if (!editingTxId && appState.transactions.some(t => t.eventName === appState.currentEvent && t.noNota === noNotaFinal)) {
+            noNotaFinal = generateAutoNoNota(type, isSeksiLogin ? akunNow : (roleNow === 'panitia' ? 'Bendahara Panitia' : pihakTerkait));
+        }
+
         const txPayload = {
             id: editingTxId ? editingTxId : Date.now(),
             eventName: appState.currentEvent,
-            noNota,
+            noNota: noNotaFinal,
             date,
             type,
             pihakTerkait,
@@ -1875,7 +1908,7 @@
         // KOP JUDUL LPJ
         doc.setFontSize(12); 
         doc.setFont(undefined, 'bold');
-        doc.text(`LAPORAN KEUANGAN ${ev.name.toUpperCase()}`, 14, 15);
+        doc.text(`LAPORAN PERTANGGUNGJAWABAN ${ev.name.toUpperCase()}`, 14, 15);
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.text(`PAROKI ST. PETRUS MAMASA`, 14, 21);
