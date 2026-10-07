@@ -566,7 +566,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwstZ6DdkSxBfGLDoR5Hz09ASibw6sxCw8UOA4DYGGAKUSooeuHJhIwLP3OlL6k28N-/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-2KQ8FTrooKF5P-UbflQSiyVOp5dFleqswbg0afMrmpIgfj03t5I5XgfKIO2ABW2R/exec";
     const PASSWORDS = { admin: "adminpspm" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -1906,11 +1906,14 @@
             [],
             ["Tanggal", "No. Bukti", "Pihak Terkait", "Uraian Transaksi", "Penerimaan (Rp)", "Pengeluaran (Rp)", "Saldo Kas Umum (Rp)"]
         ];
-        let sldBku = 0;
-        getBkuRows(txs).forEach(r => {
+        let sldBku = 0, totMasukBku = 0, totKeluarBku = 0;
+        const bkuRowsX = getBkuRows(txs);
+        bkuRowsX.forEach(r => {
             sldBku += (r.masuk - r.keluar);
+            totMasukBku += r.masuk; totKeluarBku += r.keluar;
             aoaBku.push([r.t.date || '-', r.t.noNota || '-', r.pihak, r.desc, r.masuk, r.keluar, sldBku]);
         });
+        if (bkuRowsX.length) aoaBku.push(["", "", "", "TOTAL", totMasukBku, totKeluarBku, sldBku]);
         aoaBku.push([], [], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaBku), "Buku Kas Umum");
 
@@ -1931,6 +1934,7 @@
             g.rows.forEach(r => {
                 aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.klr, r.saldo]);
             });
+            if (g.rows.length) aoaSeksi.push(["TOTAL", "", "", g.totalMasuk, g.totalKeluar, g.sisa]);
             aoaSeksi.push([]); 
         });
         // REKAPITULASI & URAIAN TRANSAKSI: Pengembalian Sisa Dana Dari Seksi (paling bawah, sesudah seluruh seksi)
@@ -2083,10 +2087,11 @@
         doc.text(`2. BUKU KAS UMUM (BKU) KAS UTAMA`, 14, currentY);
         doc.setFont(undefined, 'normal');
 
-        let sldBku = 0;
+        let sldBku = 0, totMasukBku = 0, totKeluarBku = 0;
         let rowsBku = [];
         getBkuRows(txs).forEach(r => {
             sldBku += (r.masuk - r.keluar);
+            totMasukBku += r.masuk; totKeluarBku += r.keluar;
             rowsBku.push([
                 r.t.date || '-',
                 r.t.noNota || '-',
@@ -2096,6 +2101,8 @@
                 `Rp ${sldBku.toLocaleString('id-ID')}`
             ]);
         });
+
+        if (rowsBku.length) rowsBku.push(['TOTAL', '', '', `Rp ${totMasukBku.toLocaleString('id-ID')}`, `Rp ${totKeluarBku.toLocaleString('id-ID')}`, `Rp ${sldBku.toLocaleString('id-ID')}`]);
 
         doc.autoTable({
             startY: currentY + 3,
@@ -2135,6 +2142,8 @@
                 r.klr ? `Rp ${r.klr.toLocaleString('id-ID')}` : '-',
                 `Rp ${r.saldo.toLocaleString('id-ID')}`
             ]);
+
+            if (g.rows.length) rowsSeksi.push(['TOTAL', '', '', `Rp ${g.totalMasuk.toLocaleString('id-ID')}`, `Rp ${g.totalKeluar.toLocaleString('id-ID')}`, `Rp ${g.sisa.toLocaleString('id-ID')}`]);
 
             doc.autoTable({
                 startY: currentY + 3,
