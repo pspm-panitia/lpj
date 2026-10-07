@@ -566,7 +566,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwamqxsOb2UW-ld2xiLzrlajXq78UpWprwf9G4KWUCXP0tpqF5xP8vBd7D2Q0Q4g-RW/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoHVNRkFy0OBMGz0NfVbJJTdd0EC5ffOb3ST9Hyhz644kkwLs5WSAGA_nBwr1P8E38/exec";
     const PASSWORDS = { admin: "adminpspm" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -765,6 +765,13 @@
         const suffix = ` (${p})`;
         if (d.toLowerCase().endsWith(suffix.toLowerCase())) return d;
         return (d || '-') + suffix;
+    }
+
+    // Urutan transaksi: berdasarkan tanggal transaksi (terlama -> terbaru); tanggal sama diurutkan menurut waktu input
+    function cmpTxByDate(a, b) {
+        const da = a.date || '9999-12-31', db = b.date || '9999-12-31';
+        if (da !== db) return da < db ? -1 : 1;
+        return (Number(a.id) || 0) - (Number(b.id) || 0);
     }
 
     function getBkuRows(txs) {
@@ -1718,7 +1725,7 @@
 
     function renderBKU() {
         ensureAppStateData();
-        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent).sort(cmpTxByDate);
         let saldo = 0;
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
@@ -1763,7 +1770,7 @@
     function renderSeksi() {
         ensureAppStateData();
         const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
-        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent).sort(cmpTxByDate);
         const isAdmin = sessionStorage.getItem('userRole') === 'admin';
 
         const onlySeksi = isSeksiLoginNow() ? (sessionStorage.getItem('userAkun') || '') : '';
@@ -1842,7 +1849,7 @@
         
         const wb = XLSX.utils.book_new();
         const ev = appState.events.find(e => e.name === appState.currentEvent) || { name: appState.currentEvent, chair: "-", treasurer: "-", pastorParoki: "-" };
-        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent).sort(cmpTxByDate);
         const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
         const ast = appState.assets.filter(a => a.eventName === appState.currentEvent);
         const tglMamasa = getTanggalMamasa();
@@ -1917,7 +1924,7 @@
         const { jsPDF } = window.jspdf; 
         const doc = new jsPDF();
         const ev = appState.events.find(e => e.name === appState.currentEvent) || { name: appState.currentEvent, chair: "-", treasurer: "-", pastorParoki: "-" };
-        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent);
+        const txs = appState.transactions.filter(t => t.eventName === appState.currentEvent).sort(cmpTxByDate);
         const seksis = appState.seksi.filter(s => s.eventName === appState.currentEvent);
         const ast = appState.assets.filter(a => a.eventName === appState.currentEvent);
         const tglMamasa = getTanggalMamasa();
