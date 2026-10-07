@@ -614,7 +614,14 @@
         return parseInt(cleaned, 10) || 0;
     }
 
+    // Setiap aplikasi dibuka, selalu mulai dari halaman login (sesi sebelumnya tidak dipakai lagi)
+    window.addEventListener('pageshow', function(ev) {
+        // Halaman dipulihkan dari cache browser (tombol Back / tab dipulihkan): paksa muat ulang ke login
+        if (ev.persisted) { sessionStorage.clear(); location.reload(); }
+    });
+
     window.onload = function() {
+        sessionStorage.clear();
         ensureAppStateData();
         checkAuthSession();
         loadDataFromCloud();
