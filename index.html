@@ -566,7 +566,7 @@
 
 <!-- JavaScript Logic -->
 <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrZHavdPwrksckiolUwwqedsCDr65Eg6IQb00N0sFcSF3J2jYGcflPmmgJWxFA8kJ9/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwstZ6DdkSxBfGLDoR5Hz09ASibw6sxCw8UOA4DYGGAKUSooeuHJhIwLP3OlL6k28N-/exec";
     const PASSWORDS = { admin: "adminpspm" }; // Password Bendahara & Seksi (4 digit) dibuat Super Admin di Dashboard
     
     let appState = {
@@ -821,6 +821,28 @@
                 }
             } else if (norm.isPenerimaanKasUtama && normSumberDana(norm.sumberDana) === SRC) {
                 rows.push({ t, desc: t.desc || SRC, msk: amt });
+            }
+        });
+        let saldo = 0;
+        rows.forEach(r => { saldo += r.msk; r.saldo = saldo; });
+        return { rows, total: saldo };
+    }
+
+    // Sumber dana yang mendapat REKAPITULASI & URAIAN TRANSAKSI sendiri (hanya dicetak jika tidak nol)
+    const SUMBER_DANA_REKAP = ['Sumbangan-Sumbangan', 'Kontribusi Stasi', 'Kontribusi Rukun'];
+
+    // Baris penerimaan Kas Utama untuk satu sumber dana (logika sama dengan rekap penerimaan berdasarkan sumber dana)
+    function getSumberDanaRows(txs, srcName) {
+        const rows = [];
+        txs.forEach(t => {
+            const norm = normalizeTx(t);
+            if (norm.isSetorSeksi) return;
+            const amt = Number(t.amount) || 0;
+            const c = classifyTx(t);
+            if (norm.isPenerimaanKasUtama || c.bkuMasuk) {
+                if (normSumberDana(norm.sumberDana) === srcName) {
+                    rows.push({ t, desc: bkuDesc(t.desc || srcName, norm.pihakName || 'Bendahara Panitia'), msk: amt });
+                }
             }
         });
         let saldo = 0;
@@ -1912,14 +1934,28 @@
             aoaSeksi.push([]); 
         });
         // REKAPITULASI & URAIAN TRANSAKSI: Pengembalian Sisa Dana Dari Seksi (paling bawah, sesudah seluruh seksi)
-        const returX = getReturSisaDanaRows(txs);
-        aoaSeksi.push([`Pengembalian Sisa Dana Dari Seksi`, `Dicatat oleh: Bendahara Panitia`]);
-        aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Penerimaan", "Total Pengembalian"]);
-        returX.rows.forEach(r => {
-            aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.saldo]);
+        // Sumbangan-Sumbangan, Kontribusi Stasi, Kontribusi Rukun (hanya jika tidak nol), sebelum pengembalian sisa dana
+        SUMBER_DANA_REKAP.forEach(srcName => {
+            const sd = getSumberDanaRows(txs, srcName);
+            if (!(sd.total > 0)) return;
+            aoaSeksi.push([srcName, `Dicatat oleh: Bendahara Panitia`]);
+            aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Penerimaan", "Total Penerimaan"]);
+            sd.rows.forEach(r => {
+                aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.saldo]);
+            });
+            aoaSeksi.push([`TOTAL ${srcName.toUpperCase()}`, "", "", sd.total, sd.total]);
+            aoaSeksi.push([]);
         });
-        aoaSeksi.push(["TOTAL PENGEMBALIAN SISA DANA", "", "", returX.total, returX.total]);
-        aoaSeksi.push([]);
+        const returX = getReturSisaDanaRows(txs);
+        if (returX.total > 0) {
+            aoaSeksi.push([`Pengembalian Sisa Dana Dari Seksi`, `Dicatat oleh: Bendahara Panitia`]);
+            aoaSeksi.push(["Tanggal", "No. Nota", "Uraian Transaksi", "Penerimaan", "Total Pengembalian"]);
+            returX.rows.forEach(r => {
+                aoaSeksi.push([r.t.date || '-', r.t.noNota || '-', r.desc, r.msk, r.saldo]);
+            });
+            aoaSeksi.push(["TOTAL PENGEMBALIAN SISA DANA", "", "", returX.total, returX.total]);
+            aoaSeksi.push([]);
+        }
         aoaSeksi.push([], ["", "", "", tglMamasa], ["Ketua Panitia", "", "Mengetahui, Pastor Paroki", "", "Bendahara Panitia"], [], [], [], [ev.chair, "", ev.pastorParoki || "-", "", ev.treasurer]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaSeksi), "Uraian Seksi");
 
@@ -2019,7 +2055,7 @@
 
         let grandTotalPenerimaan = 0;
         let rowsSumberDana = sources
-            .filter(s => s !== SRC_LAIN || sourceTotals[s] > 0)
+            .filter(s => sourceTotals[s] > 0)
             .map(s => {
                 let amt = sourceTotals[s];
                 grandTotalPenerimaan += amt;
@@ -2113,32 +2149,37 @@
             currentY = doc.lastAutoTable.finalY + 8;
         });
 
-        // --- PENGEMBALIAN SISA DANA DARI SEKSI (paling bawah, sesudah seluruh seksi) ---
-        const returP = getReturSisaDanaRows(txs);
-        if(currentY > 230) { doc.addPage(); currentY = 20; }
-        doc.setFontSize(9);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Pengembalian Sisa Dana Dari Seksi (Dicatat oleh: Bendahara Panitia)`, 14, currentY);
-        doc.setFont(undefined, 'normal');
+        // --- SUMBANGAN-SUMBANGAN, KONTRIBUSI STASI, KONTRIBUSI RUKUN, lalu PENGEMBALIAN SISA DANA (hanya jika tidak nol) ---
+        const bagianPenerimaan = SUMBER_DANA_REKAP.map(n => ({ judul: n, data: getSumberDanaRows(txs, n), head: 'Total Penerimaan', totalLabel: 'TOTAL' }));
+        bagianPenerimaan.push({ judul: 'Pengembalian Sisa Dana Dari Seksi', data: getReturSisaDanaRows(txs), head: 'Total Pengembalian', totalLabel: 'TOTAL' });
 
-        const rowsRetur = returP.rows.map(r => [
-            r.t.date || '-',
-            r.t.noNota || '-',
-            r.desc,
-            r.msk ? `Rp ${r.msk.toLocaleString('id-ID')}` : '-',
-            `Rp ${r.saldo.toLocaleString('id-ID')}`
-        ]);
-        rowsRetur.push(['TOTAL', '', '', `Rp ${returP.total.toLocaleString('id-ID')}`, `Rp ${returP.total.toLocaleString('id-ID')}`]);
+        bagianPenerimaan.forEach(b => {
+            if (!(b.data.total > 0)) return;
+            if(currentY > 230) { doc.addPage(); currentY = 20; }
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'bold');
+            doc.text(`${b.judul} (Dicatat oleh: Bendahara Panitia)`, 14, currentY);
+            doc.setFont(undefined, 'normal');
 
-        doc.autoTable({
-            startY: currentY + 3,
-            head: [['Tanggal', 'No Nota', 'Uraian Transaksi', 'Penerimaan', 'Total Pengembalian']],
-            body: returP.rows.length ? rowsRetur : [['-', '-', 'Belum ada pengembalian sisa dana dari seksi', '-', '-']],
-            theme: 'grid',
-            headStyles: { fillColor: [99, 102, 241] },
-            styles: { fontSize: 8 }
+            const rowsB = b.data.rows.map(r => [
+                r.t.date || '-',
+                r.t.noNota || '-',
+                r.desc,
+                r.msk ? `Rp ${r.msk.toLocaleString('id-ID')}` : '-',
+                `Rp ${r.saldo.toLocaleString('id-ID')}`
+            ]);
+            rowsB.push([b.totalLabel, '', '', `Rp ${b.data.total.toLocaleString('id-ID')}`, `Rp ${b.data.total.toLocaleString('id-ID')}`]);
+
+            doc.autoTable({
+                startY: currentY + 3,
+                head: [['Tanggal', 'No Nota', 'Uraian Transaksi', 'Penerimaan', b.head]],
+                body: rowsB,
+                theme: 'grid',
+                headStyles: { fillColor: [99, 102, 241] },
+                styles: { fontSize: 8 }
+            });
+            currentY = doc.lastAutoTable.finalY + 8;
         });
-        currentY = doc.lastAutoTable.finalY + 8;
 
         // --- INVENTARIS ASET ---
         if(currentY > 220) { doc.addPage(); currentY = 20; }
